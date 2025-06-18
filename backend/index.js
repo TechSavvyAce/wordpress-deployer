@@ -542,6 +542,19 @@ app.post("/upload/:jobId", async (req, res) => {
     fs.writeFileSync(jobPath, JSON.stringify(jobData, null, 2)); // Save updated jobData
     // ========================================================
 
+    // If manual DB setup is required, pause and return special response
+    if (jobData.manualDbSetup) {
+      jobData.status = "waiting-for-db";
+      fs.writeFileSync(jobPath, JSON.stringify(jobData, null, 2));
+      return res.json({
+        status: "waiting-for-db",
+        jobId,
+        dbInstructions: jobData.dbInstructions,
+        message:
+          "Manual DB setup required. Please set up the database in cPanel, then resume deployment.",
+      });
+    }
+
     // Get FTP credentials from cPanel
     const ftpResult = await getFtpCredentials(credentials);
 
@@ -594,6 +607,48 @@ app.post("/upload/:jobId", async (req, res) => {
       error: "Upload failed",
       details: error.message,
     });
+  }
+});
+
+// NEW: POST /api/resume-deploy/:jobId - Resume deployment after manual DB setup
+app.post("/api/resume-deploy/:jobId", async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const jobData = validateJob(jobId);
+    if (jobData.status !== "waiting-for-db") {
+      return res
+        .status(400)
+        .json({ error: "Job is not waiting for DB setup." });
+    }
+    // Get saved credentials
+    const credentialPath = path.join(
+      getCredentialsPath(),
+      `${jobData.credentialId}.json`
+    );
+    if (!fs.existsSync(credentialPath)) {
+      return res.status(404).json({ error: "Credential not found" });
+    }
+    const credentials = JSON.parse(fs.readFileSync(credentialPath));
+    // Get FTP credentials from cPanel
+    const ftpResult = await getFtpCredentials(credentials);
+    if (!ftpResult.success) {
+      throw new Error(`Failed to get FTP credentials: ${ftpResult.message}`);
+    }
+    // Perform FTP upload, passing database credentials
+    await uploadToFtp(ftpResult.credentials, jobData);
+    // Update job status to completed
+    jobData.status = "uploaded";
+    jobData.uploadCompletedAt = new Date().toISOString();
+    const jobPath = path.join(getJobsPath(), `${jobId}.json`);
+    fs.writeFileSync(jobPath, JSON.stringify(jobData, null, 2));
+    res.json({
+      message: "Files uploaded successfully after manual DB setup!",
+      jobId,
+      domain: jobData.domain,
+      nextStep: `Visit https://${jobData.domain}/install.php to complete WordPress installation`,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
