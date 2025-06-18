@@ -362,7 +362,10 @@ async function uploadToFtp(hostConfig, jobData) {
     // Ensure the main remote directory exists
     await client.ensureDir(remotePath);
     // Ensure wp-content/uploads exists
+    await client.ensureDir(`${remotePath}/wp-content`);
     await client.ensureDir(`${remotePath}/wp-content/uploads`);
+    await client.ensureDir(`${remotePath}/wp-content/plugins`);
+    await client.ensureDir(`${remotePath}/wp-content/themes`);
 
     // Ensure temp directory exists
     if (!fs.existsSync(tempDirPath)) {
