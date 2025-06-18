@@ -208,6 +208,11 @@ chmod +x /var/www/wordpress-deployer/backup.sh
 echo "⏰ Setting up daily backup..."
 (crontab -l 2>/dev/null; echo "0 2 * * * /var/www/wordpress-deployer/backup.sh") | crontab -
 
+# Create backup directory
+echo "📁 Creating backup directory..."
+sudo mkdir -p /var/backups/wordpress-deployer
+sudo chown $USER:$USER /var/backups/wordpress-deployer
+
 echo ""
 echo "🎉 WordPress Deployer setup completed!"
 echo ""

@@ -51,7 +51,7 @@ echo ""
 
 # Check if port 3001 is listening
 echo "🔌 Backend Port Status:"
-if netstat -tlnp 2>/dev/null | grep -q ":3001"; then
+if netstat -tlnp 2>/dev/null | grep -q ":3001" || ss -tlnp 2>/dev/null | grep -q ":3001"; then
     echo "✅ Backend is listening on port 3001"
 else
     echo "❌ Backend is not listening on port 3001"
@@ -60,10 +60,10 @@ echo ""
 
 # Check firewall status
 echo "🔒 Firewall Status:"
-if ufw status | grep -q "Status: active"; then
+if sudo ufw status 2>/dev/null | grep -q "Status: active"; then
     echo "✅ Firewall is active"
     echo "Open ports:"
-    ufw status | grep "ALLOW"
+    sudo ufw status | grep "ALLOW"
 else
     echo "⚠️  Firewall is not active"
 fi
@@ -74,8 +74,13 @@ echo "💾 Backup Status:"
 BACKUP_DIR="/var/backups/wordpress-deployer"
 if [ -d "$BACKUP_DIR" ]; then
     echo "✅ Backup directory exists"
-    echo "Recent backups:"
-    ls -la $BACKUP_DIR/*.tar.gz 2>/dev/null | tail -3 || echo "No backups found"
+    BACKUP_COUNT=$(ls -1 $BACKUP_DIR/*.tar.gz 2>/dev/null | wc -l)
+    if [ $BACKUP_COUNT -gt 0 ]; then
+        echo "Recent backups:"
+        ls -la $BACKUP_DIR/*.tar.gz 2>/dev/null | tail -3
+    else
+        echo "No backups found yet (first backup will be created at 2 AM)"
+    fi
 else
     echo "❌ Backup directory not found"
 fi
