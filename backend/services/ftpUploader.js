@@ -359,6 +359,11 @@ async function uploadToFtp(hostConfig, jobData) {
 
     const remotePath = "/public_html";
 
+    // Ensure the main remote directory exists
+    await client.ensureDir(remotePath);
+    // Ensure wp-content/uploads exists
+    await client.ensureDir(`${remotePath}/wp-content/uploads`);
+
     // Ensure temp directory exists
     if (!fs.existsSync(tempDirPath)) {
       fs.mkdirSync(tempDirPath, { recursive: true });
