@@ -543,16 +543,12 @@ app.post("/upload/:jobId", async (req, res) => {
     // ========================================================
 
     // If manual DB setup is required, pause and return special response
-    if (jobData.manualDbSetup) {
-      jobData.status = "waiting-for-db";
-      fs.writeFileSync(jobPath, JSON.stringify(jobData, null, 2));
-      return res.json({
-        status: "waiting-for-db",
-        jobId,
-        dbInstructions: jobData.dbInstructions,
-        message:
-          "Manual DB setup required. Please set up the database in cPanel, then resume deployment.",
+    if (jobData.status === "waiting-for-db") {
+      showDbSetupPause(jobId, jobData.dbInstructions, (data) => {
+        // Optionally refresh job status or UI here
+        alert("Deployment resumed and completed!");
       });
+      return;
     }
 
     // Get FTP credentials from cPanel
@@ -1166,3 +1162,36 @@ app.listen(port, () => {
   console.log(`📁 Credentials directory: ${getCredentialsPath()}`);
   console.log(`📁 Uploads directory: ${path.join(__dirname, "../uploads")}`);
 });
+
+function showDbSetupPause(jobId, dbInstructions, resumeCallback) {
+  // Create a modal or section to show instructions
+  const modal = document.createElement("div");
+  modal.className = "db-setup-modal";
+  modal.innerHTML = `
+    <h2>Manual Database Setup Required</h2>
+    <p>Please follow these steps in your cPanel:</p>
+    <ol>
+      <li>Log into cPanel: <a href="${dbInstructions.cpanelUrl}" target="_blank">${dbInstructions.cpanelUrl}</a></li>
+      <li>Create a new database: <b>${dbInstructions.databaseName}</b></li>
+      <li>Create a new user: <b>${dbInstructions.databaseUser}</b></li>
+      <li>Set password: <b>${dbInstructions.databasePassword}</b></li>
+      <li>Add the user to the database with <b>ALL PRIVILEGES</b></li>
+    </ol>
+    <button id="resume-deploy-btn">I have set up the DB, Resume Deployment</button>
+  `;
+  document.body.appendChild(modal);
+
+  document.getElementById("resume-deploy-btn").onclick = async function () {
+    modal.innerHTML = "<p>Resuming deployment...</p>";
+    // Call backend to resume
+    const resp = await fetch(`/api/resume-deploy/${jobId}`, { method: "POST" });
+    const data = await resp.json();
+    if (data.error) {
+      modal.innerHTML = `<p style="color:red;">${data.error}</p>`;
+    } else {
+      modal.innerHTML = `<p style="color:green;">${data.message}</p>`;
+      if (resumeCallback) resumeCallback(data);
+    }
+    setTimeout(() => modal.remove(), 3000);
+  };
+}
