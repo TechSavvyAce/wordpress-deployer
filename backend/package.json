@@ -1,0 +1,24 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@cpanel/api": "^6.0.0",
+    "archiver": "^6.0.1",
+    "axios": "^1.10.0",
+    "basic-ftp": "^5.0.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "extract-zip": "^2.0.1",
+    "multer": "^2.0.1",
+    "uuid": "^11.1.0"
+  }
+}
