@@ -264,8 +264,8 @@ if (file_exists($plugin_zip_path)) {
                     if (strpos($output, 'Success') !== false) {
                         echo "<p>✅ Template imported successfully!</p>";
                         // Delete the wpress file after successful import
-                        unlink($wpress_file_path);
-                        echo "<p>🗑️ Cleaned up template.wpress file.</p>";
+                        // unlink($wpress_file_path);
+                        echo "<p>🗑️ (Skipped) Cleaned up template.wpress file. File is kept for debugging.</p>";
                     } else {
                         echo "<p style=\"color:red;\">❌ Template import failed!</p>";
                         echo "<p style=\"color:red;\">Please check the WP-CLI output above for details or try manual import.</p>";
