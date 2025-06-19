@@ -372,15 +372,32 @@ async function uploadToFtp(hostConfig, jobData) {
       fs.mkdirSync(tempDirPath, { recursive: true });
     }
 
-    // === NEW: Download WordPress core files ===
-    console.log("📥 Downloading WordPress core files...");
-    const wpCorePath = await downloadWordPressCore(
-      "latest",
-      tempDirPath,
-      (progress) => {
-        console.log(`📥 WordPress download progress: ${progress.toFixed(1)}%`);
+    // === NEW: Download WordPress core ZIP ===
+    console.log("📥 Downloading WordPress core ZIP file...");
+    const wpVersion = "latest";
+    const tempZipDir = path.join(tempDirPath, "wordpress-temp");
+    if (!fs.existsSync(tempZipDir)) {
+      fs.mkdirSync(tempZipDir, { recursive: true });
+    }
+    let version = wpVersion;
+    if (wpVersion === "latest") {
+      try {
+        const response = await fetch(
+          "https://api.wordpress.org/core/version-check/1.7/"
+        );
+        const data = await response.json();
+        version = data.offers[0].version;
+      } catch (error) {
+        console.log("Could not fetch latest version, using 6.4.3 as fallback");
+        version = "6.4.3";
       }
-    );
+    }
+    const wpZipUrl = `https://wordpress.org/wordpress-${version}.zip`;
+    const wpZipPath = path.join(tempZipDir, `wordpress-${version}.zip`);
+    await downloadFile(wpZipUrl, wpZipPath, (progress) => {
+      console.log(`📥 WordPress download progress: ${progress.toFixed(1)}%`);
+    });
+    console.log(`✅ WordPress ZIP downloaded to ${wpZipPath}`);
 
     // === DETERMINE TEMPLATE TYPE AND HANDLE ACCORDINGLY ===
     let templatePath;
@@ -412,7 +429,7 @@ async function uploadToFtp(hostConfig, jobData) {
     // === NEW: Download All-in-One WP Migration plugin ===
     console.log("📥 Downloading All-in-One WP Migration plugin...");
     const pluginPath = await downloadPlugin(
-      "all-in-one-wp-migration",
+      "all-in-One-wp-migration",
       tempDirPath,
       (progress) => {
         console.log(`📥 Plugin download progress: ${progress.toFixed(1)}%`);
@@ -440,7 +457,7 @@ async function uploadToFtp(hostConfig, jobData) {
 
     // Validate that all required files exist
     const requiredFiles = [
-      { path: wpCorePath, name: "WordPress core files", isDir: true },
+      { path: wpZipPath, name: "WordPress core ZIP file" },
       {
         path: templatePath,
         name: `Template: ${jobData.template} (${templateType})`,
@@ -451,35 +468,27 @@ async function uploadToFtp(hostConfig, jobData) {
     ];
 
     for (const file of requiredFiles) {
-      if (file.isDir) {
-        if (!fs.existsSync(file.path)) {
-          throw new Error(`${file.name} not found at: ${file.path}`);
-        }
-      } else {
-        if (!fs.existsSync(file.path)) {
-          throw new Error(`${file.name} not found at: ${file.path}`);
-        }
+      if (!fs.existsSync(file.path)) {
+        throw new Error(`${file.name} not found at: ${file.path}`);
       }
     }
 
     // === Upload files to FTP ===
     console.log("📤 Starting optimized file upload...");
 
-    // Upload WordPress core files
+    // Upload WordPress core ZIP file
     console.log(
-      "[DEBUG] Preparing to upload WordPress core files:",
-      wpCorePath,
+      "[DEBUG] Preparing to upload WordPress core ZIP:",
+      wpZipPath,
       "->",
-      remotePath
+      `${remotePath}/wordpress.zip`
     );
-    if (!fs.existsSync(wpCorePath)) {
-      console.error("[ERROR] WordPress core files not found:", wpCorePath);
-      throw new Error(`File not found: ${wpCorePath}`);
+    if (!fs.existsSync(wpZipPath)) {
+      console.error("[ERROR] WordPress core ZIP not found:", wpZipPath);
+      throw new Error(`File not found: ${wpZipPath}`);
     }
-    console.log("📤 Uploading WordPress core files...");
-    await uploadWithProgress(client, wpCorePath, remotePath, (progress) => {
-      console.log(`📤 WordPress upload progress: ${progress.toFixed(1)}%`);
-    });
+    console.log("📤 Uploading WordPress core ZIP file...");
+    await client.uploadFrom(wpZipPath, `${remotePath}/wordpress.zip`);
 
     // Upload template based on type
     if (templateType === "custom") {

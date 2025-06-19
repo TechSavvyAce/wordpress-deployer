@@ -9,6 +9,23 @@ echo "<p>This script will automatically configure WordPress and import your site
 // Define base path (where WordPress is installed)
 define('BASE_PATH', __DIR__);
 
+// === Unzip WordPress core if wordpress.zip exists ===
+$wordpressZip = BASE_PATH . '/wordpress.zip';
+if (file_exists($wordpressZip)) {
+    echo "<p>📦 Extracting WordPress core from wordpress.zip...</p>";
+    $zip = new ZipArchive;
+    if ($zip->open($wordpressZip) === TRUE) {
+        $zip->extractTo(BASE_PATH);
+        $zip->close();
+        echo "<p>✅ WordPress core extracted.</p>";
+        unlink($wordpressZip);
+        echo "<p>🗑️ Cleaned up wordpress.zip.</p>";
+    } else {
+        echo "<p style=\"color:red;\">❌ Could not open wordpress.zip for extraction.</p>";
+        exit;
+    }
+}
+
 // === Step 1: Read Job Info ===
 $jobInfoPath = BASE_PATH . '/job-info.json';
 $jobData = [];
