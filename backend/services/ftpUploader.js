@@ -412,7 +412,7 @@ async function uploadToFtp(hostConfig, jobData) {
     // === NEW: Download All-in-One WP Migration plugin ===
     console.log("📥 Downloading All-in-One WP Migration plugin...");
     const pluginPath = await downloadPlugin(
-      "all-in-One-wp-migration",
+      "all-in-one-wp-migration",
       tempDirPath,
       (progress) => {
         console.log(`📥 Plugin download progress: ${progress.toFixed(1)}%`);
