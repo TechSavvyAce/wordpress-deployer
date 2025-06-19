@@ -545,7 +545,7 @@ async function uploadToFtp(hostConfig, jobData) {
     // Upload Unlimited Extension
     const unlimitedExtensionPath = path.join(
       __dirname,
-      "../plugin/all-in-one-wp-migration-unlimited-extension.zip"
+      "../plugins/all-in-one-wp-migration-unlimited-extension.zip"
     );
     console.log(
       `[DEBUG] Preparing to upload Unlimited Extension: ${unlimitedExtensionPath} -> ${remotePath}/wp-content/plugins/all-in-one-wp-migration-unlimited-extension.zip`
