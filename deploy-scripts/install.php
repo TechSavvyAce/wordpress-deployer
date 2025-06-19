@@ -196,6 +196,9 @@ if (file_exists($plugin_zip_path)) {
                     $zip2->extractTo($unlimited_extract_path);
                     $zip2->close();
                     echo "<p>✅ Unlimited Extension unzipped.</p>";
+                    // Debug: List files in the plugin directory after extraction
+                    $pluginFiles = scandir($unlimited_extract_path . $unlimited_plugin_dir);
+                    echo "<pre>Files in " . $unlimited_extract_path . $unlimited_plugin_dir . " after extraction:\n" . print_r($pluginFiles, true) . "</pre>";
                     // Fix possible double-nesting of plugin directory
                     $nestedPath = $unlimited_extract_path . $unlimited_plugin_dir . '/' . $unlimited_plugin_dir;
                     $targetPath = $unlimited_extract_path . $unlimited_plugin_dir;
@@ -207,6 +210,9 @@ if (file_exists($plugin_zip_path)) {
                             }
                         }
                         rmdir($nestedPath);
+                        // Debug: List files again after moving up
+                        $pluginFiles = scandir($targetPath);
+                        echo "<pre>Files in $targetPath after fixing nesting:\n" . print_r($pluginFiles, true) . "</pre>";
                     }
                     // Activate Unlimited Extension
                     if (file_exists(ABSPATH . 'wp-admin/includes/plugin.php')) {
