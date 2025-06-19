@@ -184,6 +184,35 @@ if (file_exists($plugin_zip_path)) {
         } else {
             echo "<p>✅ All-in-One WP Migration plugin activated.</p>";
 
+            // === Unzip and activate Unlimited Extension ===
+            $unlimited_zip_path = BASE_PATH . '/wp-content/plugins/all-in-one-wp-migration-unlimited-extension.zip';
+            $unlimited_extract_path = BASE_PATH . '/wp-content/plugins/';
+            $unlimited_plugin_dir = 'all-in-one-wp-migration-unlimited-extension';
+            $unlimited_main_file = $unlimited_plugin_dir . '/all-in-one-wp-migration-unlimited-extension.php';
+
+            if (file_exists($unlimited_zip_path)) {
+                $zip2 = new ZipArchive;
+                if ($zip2->open($unlimited_zip_path) === TRUE) {
+                    $zip2->extractTo($unlimited_extract_path);
+                    $zip2->close();
+                    echo "<p>✅ Unlimited Extension unzipped.</p>";
+                    // Activate Unlimited Extension
+                    if (file_exists(ABSPATH . 'wp-admin/includes/plugin.php')) {
+                        include_once(ABSPATH . 'wp-admin/includes/plugin.php');
+                        $activated2 = activate_plugin($unlimited_main_file);
+                        if (is_wp_error($activated2)) {
+                            echo "<p style=\"color:red;\">❌ Failed to activate Unlimited Extension: " . $activated2->get_error_message() . "</p>";
+                        } else {
+                            echo "<p>✅ Unlimited Extension activated.</p>";
+                        }
+                    }
+                } else {
+                    echo "<p style=\"color:red;\">❌ Could not open Unlimited Extension ZIP file.</p>";
+                }
+            } else {
+                echo "<p style=\"color:red;\">❌ Unlimited Extension ZIP file not found at {$unlimited_zip_path}</p>";
+            }
+
             // --- WP-CLI AUTOMATION SECTION ---
             // Move .wpress file to ai1wm-backups for best compatibility
             $wpress_file_path = BASE_PATH . '/template.wpress';

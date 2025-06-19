@@ -542,6 +542,27 @@ async function uploadToFtp(hostConfig, jobData) {
       `${remotePath}/wp-content/plugins/all-in-one-wp-migration.zip`
     );
 
+    // Upload Unlimited Extension
+    const unlimitedExtensionPath = path.join(
+      __dirname,
+      "../plugin/all-in-one-wp-migration-unlimited-extension.zip"
+    );
+    console.log(
+      `[DEBUG] Preparing to upload Unlimited Extension: ${unlimitedExtensionPath} -> ${remotePath}/wp-content/plugins/all-in-one-wp-migration-unlimited-extension.zip`
+    );
+    if (!fs.existsSync(unlimitedExtensionPath)) {
+      console.error(
+        "[ERROR] Unlimited Extension ZIP not found:",
+        unlimitedExtensionPath
+      );
+      throw new Error(`File not found: ${unlimitedExtensionPath}`);
+    }
+    console.log("📤 Uploading Unlimited Extension...");
+    await client.uploadFrom(
+      unlimitedExtensionPath,
+      `${remotePath}/wp-content/plugins/all-in-one-wp-migration-unlimited-extension.zip`
+    );
+
     // Upload logo
     console.log(
       `[DEBUG] Preparing to upload logo: ${localLogoPath} -> ${remotePath}/wp-content/uploads/${jobData.logo}`
