@@ -29,14 +29,26 @@ echo "<p>This script will automatically configure WordPress and import your site
 // Define base path (where WordPress is installed)
 define('BASE_PATH', __DIR__);
 
-// === Unzip WordPress core if wordpress.zip exists ===
+// === Ensure WordPress core is extracted before proceeding ===
 $wordpressZip = BASE_PATH . '/wordpress.zip';
-if (file_exists($wordpressZip)) {
+$wpLoad = BASE_PATH . '/wp-load.php';
+
+if (!file_exists($wpLoad) && file_exists($wordpressZip)) {
     echo "<p>📦 Extracting WordPress core from wordpress.zip...</p>";
     $zip = new ZipArchive;
     if ($zip->open($wordpressZip) === TRUE) {
         $zip->extractTo(BASE_PATH);
         $zip->close();
+        // Move files from wordpress/ to root if needed
+        if (is_dir(BASE_PATH . '/wordpress')) {
+            $files = scandir(BASE_PATH . '/wordpress');
+            foreach ($files as $file) {
+                if ($file !== '.' && $file !== '..') {
+                    rename(BASE_PATH . '/wordpress/' . $file, BASE_PATH . '/' . $file);
+                }
+            }
+            rmdir(BASE_PATH . '/wordpress');
+        }
         echo "<p>✅ WordPress core extracted.</p>";
         unlink($wordpressZip);
         echo "<p>🗑️ Cleaned up wordpress.zip.</p>";
@@ -44,6 +56,12 @@ if (file_exists($wordpressZip)) {
         echo "<p style=\"color:red;\">❌ Could not open wordpress.zip for extraction.</p>";
         exit;
     }
+}
+
+// After extraction, check again for wp-load.php
+if (!file_exists($wpLoad)) {
+    echo "<p style=\"color:red;\">❌ wp-load.php still not found after extraction. Aborting.</p>";
+    exit;
 }
 
 // === Step 1: Read Job Info ===
