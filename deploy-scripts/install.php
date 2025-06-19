@@ -184,28 +184,42 @@ if (file_exists($plugin_zip_path)) {
         } else {
             echo "<p>✅ All-in-One WP Migration plugin activated.</p>";
 
-            // Now, trigger the import using WP-CLI
-            echo "<p>⏳ Attempting to import template via WP-CLI...</p>";
-
-            $wpress_file_path = BASE_PATH . '/template.wpress'; // This is where ftpUploader puts it
+            // --- WP-CLI AUTOMATION SECTION ---
+            // Move .wpress file to ai1wm-backups for best compatibility
+            $wpress_file_path = BASE_PATH . '/template.wpress';
+            $ai1wm_backup_dir = BASE_PATH . '/wp-content/ai1wm-backups/';
+            if (!is_dir($ai1wm_backup_dir)) {
+                mkdir($ai1wm_backup_dir, 0755, true);
+            }
             if (file_exists($wpress_file_path)) {
-                echo "<p>Template file found: {$wpress_file_path}</p>";
+                rename($wpress_file_path, $ai1wm_backup_dir . basename($wpress_file_path));
+                $wpress_file_path = $ai1wm_backup_dir . basename($wpress_file_path);
+            }
 
-                // Check if WP-CLI is available
-                $wp_cli_path = trim(shell_exec('which wp'));
-                if (empty($wp_cli_path)) {
-                    echo "<p style=\"color:orange;\">⚠️ WP-CLI not found. Please install WP-CLI on your server to automate template import.</p>";
-                    echo "<p style=\"color:orange;\">You may need to manually import the template using the All-in-One WP Migration plugin's interface.</p>";
+            // Download WP-CLI if not present
+            $wp_cli_phar = BASE_PATH . '/wp-cli.phar';
+            if (!file_exists($wp_cli_phar)) {
+                echo "<p>Downloading WP-CLI...</p>";
+                $wp_cli_url = 'https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar';
+                $wp_cli_data = @file_get_contents($wp_cli_url);
+                if ($wp_cli_data !== false) {
+                    file_put_contents($wp_cli_phar, $wp_cli_data);
+                    echo "<p>✅ WP-CLI downloaded to $wp_cli_phar</p>";
                 } else {
-                    echo "<p>✅ WP-CLI found at: {$wp_cli_path}</p>";
-                    // Construct the WP-CLI command
-                    $command = escapeshellcmd("{$wp_cli_path} ai1wm import {$wpress_file_path} --allow-root");
+                    echo "<p style=\"color:red;\">❌ Failed to download WP-CLI. Please check your server's internet access.</p>";
+                }
+            }
+
+            // Use WP-CLI via php wp-cli.phar
+            if (file_exists($wp_cli_phar)) {
+                $wp_cli_cmd = 'php ' . escapeshellarg($wp_cli_phar);
+                echo "<p>Using WP-CLI: <code>$wp_cli_cmd</code></p>";
+                // Run ai1wm import
+                if (file_exists($wpress_file_path)) {
+                    $command = $wp_cli_cmd . ' ai1wm import ' . escapeshellarg($wpress_file_path) . ' --allow-root';
                     echo "<p>Executing command: <code>{$command}</code></p>";
-
-                    // Execute the command
-                    $output = shell_exec($command . ' 2>&1'); // Redirect stderr to stdout
+                    $output = shell_exec($command . ' 2>&1');
                     echo "<pre>{$output}</pre>";
-
                     if (strpos($output, 'Success') !== false) {
                         echo "<p>✅ Template imported successfully!</p>";
                         // Delete the wpress file after successful import
@@ -215,10 +229,14 @@ if (file_exists($plugin_zip_path)) {
                         echo "<p style=\"color:red;\">❌ Template import failed!</p>";
                         echo "<p style=\"color:red;\">Please check the WP-CLI output above for details or try manual import.</p>";
                     }
+                } else {
+                    echo "<p style=\"color:red;\">❌ Template .wpress file not found at {$wpress_file_path}</p>";
                 }
             } else {
-                echo "<p style=\"color:red;\">❌ Template .wpress file not found at {$wpress_file_path}</p>";
+                echo "<p style=\"color:red;\">❌ WP-CLI not available. Please install it manually.</p>";
+                echo "<p style=\"color:orange;\">You may need to manually import the template using the All-in-One WP Migration plugin's interface.</p>";
             }
+            // --- END WP-CLI AUTOMATION SECTION ---
         }
     } else {
         echo "<p style=\"color:red;\">❌ Could not open All-in-One WP Migration ZIP file.</p>";
