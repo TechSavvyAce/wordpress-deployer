@@ -1923,15 +1923,12 @@
               showSuccessToast("Deployment completed successfully!");
 
               // Show next steps
-              if (deployData.manualDbSetup) {
-                showInfoToast(
-                  "Database setup required manually. Check the deployment logs for instructions."
-                );
-              } else {
-                showInfoToast(
-                  `Visit ${deployData.nextStep} to complete installation`
-                );
-              }
+              showNextSteps({
+                domain: jobData.domain || selectedCredential.host,
+                manualDbSetup: deployData.manualDbSetup,
+                dbInstructions: deployData.dbInstructions,
+                nextStep: deployData.nextStep,
+              });
             } else {
               showErrorToast(
                 "Deployment failed. Please check the deployment logs below."
@@ -2809,6 +2806,58 @@
           console.error("Error deleting template:", error);
           showErrorToast("Error deleting template");
         }
+      }
+
+      // === Next Steps Section ===
+      function showNextSteps({
+        domain,
+        manualDbSetup,
+        dbInstructions,
+        nextStep,
+      }) {
+        let nextStepsDiv = document.getElementById("nextSteps");
+        if (!nextStepsDiv) {
+          nextStepsDiv = document.createElement("div");
+          nextStepsDiv.id = "nextSteps";
+          nextStepsDiv.style.marginTop = "30px";
+          nextStepsDiv.style.padding = "24px";
+          nextStepsDiv.style.background = "#f8fafc";
+          nextStepsDiv.style.border = "1px solid #e5e7eb";
+          nextStepsDiv.style.borderRadius = "12px";
+          nextStepsDiv.style.textAlign = "center";
+          const deploymentTab = document.getElementById("deploy-tab");
+          deploymentTab.appendChild(nextStepsDiv);
+        }
+        nextStepsDiv.innerHTML = "";
+
+        if (manualDbSetup) {
+          nextStepsDiv.innerHTML = `
+            <h3 style="color:#d97706;"><i class="fas fa-database"></i> Manual Database Setup Required</h3>
+            <div style="text-align:left; margin: 20px auto; max-width: 500px; background: #fffbe6; border: 1px solid #fde68a; border-radius: 8px; padding: 18px; color: #92400e;">
+              <pre style="white-space: pre-wrap;">${
+                dbInstructions ||
+                "Please follow the instructions above to create your database and user in cPanel."
+              }</pre>
+            </div>
+            <button id="confirmDbBtn" class="btn btn-primary" style="margin-top:18px;">
+              <i class="fas fa-check"></i> I have created the database, continue
+            </button>
+          `;
+          document.getElementById("confirmDbBtn").onclick = function () {
+            showNextSteps({ domain, manualDbSetup: false, nextStep });
+          };
+        } else {
+          // Show install.php link
+          const installUrl = nextStep || `https://${domain}/install.php`;
+          nextStepsDiv.innerHTML = `
+            <h3 style="color:#059669;"><i class="fas fa-play-circle"></i> Proceed to WordPress Installation</h3>
+            <a href="${installUrl}" target="_blank" class="btn btn-primary" style="margin-top:18px; font-size:1.1rem;">
+              <i class="fas fa-link"></i> Open install.php
+            </a>
+            <div style="margin-top:12px; color:#6b7280; font-size:0.95rem;">This will finalize your WordPress site setup.</div>
+          `;
+        }
+        nextStepsDiv.scrollIntoView({ behavior: "smooth" });
       }
     </script>
   </body>
