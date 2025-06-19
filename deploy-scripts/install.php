@@ -267,16 +267,17 @@ if (file_exists($plugin_zip_path)) {
                 // Debug: Show available ai1wm subcommands
                 $output = shell_exec($wp_cli_cmd . ' help ai1wm 2>&1');
                 echo "<pre>WP-CLI ai1wm help:\n$output</pre>";
-                // Run ai1wm import
+                // Run ai1wm restore (not import)
                 if (file_exists($wpress_file_path)) {
-                    $command = $wp_cli_cmd . ' ai1wm import ' . escapeshellarg($wpress_file_path) . ' --allow-root';
+                    $backup_filename = basename($wpress_file_path);
+                    $command = $wp_cli_cmd . ' ai1wm restore ' . escapeshellarg($backup_filename) . ' --yes --allow-root';
                     echo "<p>Executing command: <code>{$command}</code></p>";
                     $output = shell_exec($command . ' 2>&1');
                     echo "<pre>{$output}</pre>";
                     if (strpos($output, 'Success') !== false) {
                         echo "<p>✅ Template imported successfully!</p>";
-                        // unlink($wpress_file_path);
-                        echo "<p>🗑️ (Skipped) Cleaned up template.wpress file. File is kept for debugging.</p>";
+                        unlink($wpress_file_path);
+                        echo "<p>🗑️ Cleaned up template.wpress file. File is kept for debugging.</p>";
                     } else {
                         echo "<p style=\"color:red;\">❌ Template import failed!</p>";
                         echo "<p style=\"color:red;\">Please check the WP-CLI output above for details or try manual import.</p>";
