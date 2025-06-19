@@ -2834,10 +2834,10 @@
           nextStepsDiv.innerHTML = `
             <h3 style="color:#d97706;"><i class="fas fa-database"></i> Manual Database Setup Required</h3>
             <div style="text-align:left; margin: 20px auto; max-width: 500px; background: #fffbe6; border: 1px solid #fde68a; border-radius: 8px; padding: 18px; color: #92400e;">
-              <pre style="white-space: pre-wrap;">${
-                dbInstructions ||
+              <div style="white-space: pre-wrap;">${
+                renderDbInstructions(dbInstructions) ||
                 "Please follow the instructions above to create your database and user in cPanel."
-              }</pre>
+              }</div>
             </div>
             <button id="confirmDbBtn" class="btn btn-primary" style="margin-top:18px;">
               <i class="fas fa-check"></i> I have created the database, continue
@@ -2859,6 +2859,21 @@
         }
         nextStepsDiv.scrollIntoView({ behavior: "smooth" });
       }
+
+      function renderDbInstructions(dbInstructions) {
+        if (typeof dbInstructions === "string") return dbInstructions;
+        if (Array.isArray(dbInstructions)) return dbInstructions.join("<br>");
+        // If it's an object, format as HTML
+        let html = "<ul>";
+        for (const key in dbInstructions) {
+          html += `<li><strong>${key}:</strong> ${dbInstructions[key]}</li>`;
+        }
+        html += "</ul>";
+        return html;
+      }
+
+      // Usage:
+      element.innerHTML = renderDbInstructions(dbInstructions);
     </script>
   </body>
 </html>
