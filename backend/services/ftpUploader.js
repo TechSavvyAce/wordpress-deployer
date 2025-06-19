@@ -429,7 +429,7 @@ async function uploadToFtp(hostConfig, jobData) {
     // === NEW: Download All-in-One WP Migration plugin ===
     console.log("📥 Downloading All-in-One WP Migration plugin...");
     const pluginPath = await downloadPlugin(
-      "all-in-one-wp-migration",
+      "all-in-One-wp-migration",
       tempDirPath,
       (progress) => {
         console.log(`📥 Plugin download progress: ${progress.toFixed(1)}%`);
@@ -454,6 +454,10 @@ async function uploadToFtp(hostConfig, jobData) {
     localWpConfigPath = path.join(tempDirPath, `wp-config-${jobData.id}.php`);
     fs.writeFileSync(localWpConfigPath, wpConfigContent);
     console.log(`✅ Generated wp-config.php at: ${localWpConfigPath}`);
+
+    // === Generate job-info.json ===
+    const localJobInfoPath = path.join(tempDirPath, `job-info.json`);
+    fs.writeFileSync(localJobInfoPath, JSON.stringify(jobData, null, 2));
 
     // Validate that all required files exist
     const requiredFiles = [
@@ -573,6 +577,17 @@ async function uploadToFtp(hostConfig, jobData) {
     }
     console.log("📤 Uploading install script...");
     await client.uploadFrom(localInstallerPath, `${remotePath}/install.php`);
+
+    // === Upload job-info.json ===
+    console.log(
+      `[DEBUG] Preparing to upload job-info.json: ${localJobInfoPath} -> ${remotePath}/job-info.json`
+    );
+    if (!fs.existsSync(localJobInfoPath)) {
+      console.error("[ERROR] job-info.json not found:", localJobInfoPath);
+      throw new Error(`File not found: ${localJobInfoPath}`);
+    }
+    console.log("📤 Uploading job-info.json...");
+    await client.uploadFrom(localJobInfoPath, `${remotePath}/job-info.json`);
 
     console.log("✅ All files uploaded successfully!");
   } catch (error) {
