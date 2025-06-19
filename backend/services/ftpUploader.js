@@ -412,7 +412,7 @@ async function uploadToFtp(hostConfig, jobData) {
     // === NEW: Download All-in-One WP Migration plugin ===
     console.log("📥 Downloading All-in-One WP Migration plugin...");
     const pluginPath = await downloadPlugin(
-      "all-in-one-wp-migration",
+      "all-in-One-wp-migration",
       tempDirPath,
       (progress) => {
         console.log(`📥 Plugin download progress: ${progress.toFixed(1)}%`);
@@ -466,6 +466,16 @@ async function uploadToFtp(hostConfig, jobData) {
     console.log("📤 Starting optimized file upload...");
 
     // Upload WordPress core files
+    console.log(
+      "[DEBUG] Preparing to upload WordPress core files:",
+      wpCorePath,
+      "->",
+      remotePath
+    );
+    if (!fs.existsSync(wpCorePath)) {
+      console.error("[ERROR] WordPress core files not found:", wpCorePath);
+      throw new Error(`File not found: ${wpCorePath}`);
+    }
     console.log("📤 Uploading WordPress core files...");
     await uploadWithProgress(client, wpCorePath, remotePath, (progress) => {
       console.log(`📤 WordPress upload progress: ${progress.toFixed(1)}%`);
@@ -474,10 +484,30 @@ async function uploadToFtp(hostConfig, jobData) {
     // Upload template based on type
     if (templateType === "custom") {
       // Upload custom .wpress template
+      console.log(
+        `[DEBUG] Preparing to upload custom template (.wpress): ${templatePath} -> ${remotePath}/template.wpress`
+      );
+      if (!fs.existsSync(templatePath)) {
+        console.error(
+          "[ERROR] Custom template (.wpress) not found:",
+          templatePath
+        );
+        throw new Error(`File not found: ${templatePath}`);
+      }
       console.log("📤 Uploading custom template (.wpress)...");
       await client.uploadFrom(templatePath, `${remotePath}/template.wpress`);
     } else {
       // Upload WordPress.org theme
+      console.log(
+        `[DEBUG] Preparing to upload WordPress.org theme: ${templatePath} -> ${remotePath}/wp-content/themes/${jobData.template}.zip`
+      );
+      if (!fs.existsSync(templatePath)) {
+        console.error(
+          "[ERROR] WordPress.org theme ZIP not found:",
+          templatePath
+        );
+        throw new Error(`File not found: ${templatePath}`);
+      }
       console.log("📤 Uploading WordPress.org theme...");
       await client.uploadFrom(
         templatePath,
@@ -486,6 +516,13 @@ async function uploadToFtp(hostConfig, jobData) {
     }
 
     // Upload plugin
+    console.log(
+      `[DEBUG] Preparing to upload plugin: ${pluginPath} -> ${remotePath}/wp-content/plugins/all-in-one-wp-migration.zip`
+    );
+    if (!fs.existsSync(pluginPath)) {
+      console.error("[ERROR] Plugin ZIP not found:", pluginPath);
+      throw new Error(`File not found: ${pluginPath}`);
+    }
     console.log("📤 Uploading plugin...");
     await client.uploadFrom(
       pluginPath,
@@ -493,6 +530,13 @@ async function uploadToFtp(hostConfig, jobData) {
     );
 
     // Upload logo
+    console.log(
+      `[DEBUG] Preparing to upload logo: ${localLogoPath} -> ${remotePath}/wp-content/uploads/${jobData.logo}`
+    );
+    if (!fs.existsSync(localLogoPath)) {
+      console.error("[ERROR] Logo file not found:", localLogoPath);
+      throw new Error(`File not found: ${localLogoPath}`);
+    }
     console.log("📤 Uploading logo...");
     await client.uploadFrom(
       localLogoPath,
@@ -500,10 +544,24 @@ async function uploadToFtp(hostConfig, jobData) {
     );
 
     // Upload wp-config.php
+    console.log(
+      `[DEBUG] Preparing to upload wp-config.php: ${localWpConfigPath} -> ${remotePath}/wp-config.php`
+    );
+    if (!fs.existsSync(localWpConfigPath)) {
+      console.error("[ERROR] wp-config.php not found:", localWpConfigPath);
+      throw new Error(`File not found: ${localWpConfigPath}`);
+    }
     console.log("📤 Uploading wp-config.php...");
     await client.uploadFrom(localWpConfigPath, `${remotePath}/wp-config.php`);
 
     // Upload install script
+    console.log(
+      `[DEBUG] Preparing to upload install script: ${localInstallerPath} -> ${remotePath}/install.php`
+    );
+    if (!fs.existsSync(localInstallerPath)) {
+      console.error("[ERROR] Install script not found:", localInstallerPath);
+      throw new Error(`File not found: ${localInstallerPath}`);
+    }
     console.log("📤 Uploading install script...");
     await client.uploadFrom(localInstallerPath, `${remotePath}/install.php`);
 
