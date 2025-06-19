@@ -26,7 +26,6 @@ temp/
 
 # WordPress core and plugins (if downloaded)
 wordpress-core/
-plugins/
 
 # Logs
 logs/
