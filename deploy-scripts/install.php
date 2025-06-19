@@ -261,6 +261,12 @@ if (file_exists($plugin_zip_path)) {
             if (file_exists($wp_cli_phar)) {
                 $wp_cli_cmd = 'php ' . escapeshellarg($wp_cli_phar);
                 echo "<p>Using WP-CLI: <code>$wp_cli_cmd</code></p>";
+                // Debug: Show WP-CLI plugin list
+                $output = shell_exec($wp_cli_cmd . ' plugin list 2>&1');
+                echo "<pre>WP-CLI plugin list:\n$output</pre>";
+                // Debug: Show available ai1wm subcommands
+                $output = shell_exec($wp_cli_cmd . ' help ai1wm 2>&1');
+                echo "<pre>WP-CLI ai1wm help:\n$output</pre>";
                 // Run ai1wm import
                 if (file_exists($wpress_file_path)) {
                     $command = $wp_cli_cmd . ' ai1wm import ' . escapeshellarg($wpress_file_path) . ' --allow-root';
@@ -269,7 +275,6 @@ if (file_exists($plugin_zip_path)) {
                     echo "<pre>{$output}</pre>";
                     if (strpos($output, 'Success') !== false) {
                         echo "<p>✅ Template imported successfully!</p>";
-                        // Delete the wpress file after successful import
                         // unlink($wpress_file_path);
                         echo "<p>🗑️ (Skipped) Cleaned up template.wpress file. File is kept for debugging.</p>";
                     } else {
