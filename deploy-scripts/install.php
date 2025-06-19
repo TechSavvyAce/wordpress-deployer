@@ -1,4 +1,24 @@
 <?php
+// Auto-extract wordpress.zip if wp-load.php is missing
+if (!file_exists(__DIR__ . '/wp-load.php') && file_exists(__DIR__ . '/wordpress.zip')) {
+    $zip = new ZipArchive;
+    if ($zip->open(__DIR__ . '/wordpress.zip') === TRUE) {
+        $zip->extractTo(__DIR__);
+        $zip->close();
+        // Move files from wordpress/ to root if needed
+        if (is_dir(__DIR__ . '/wordpress')) {
+            $files = scandir(__DIR__ . '/wordpress');
+            foreach ($files as $file) {
+                if ($file !== '.' && $file !== '..') {
+                    rename(__DIR__ . '/wordpress/' . $file, __DIR__ . '/' . $file);
+                }
+            }
+            rmdir(__DIR__ . '/wordpress');
+        }
+    } else {
+        die('Failed to extract wordpress.zip');
+    }
+}
 
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
