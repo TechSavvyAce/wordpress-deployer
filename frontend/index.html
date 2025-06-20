@@ -856,7 +856,7 @@
             </select>
           </div>
 
-          <div class="form-group">
+          <!-- <div class="form-group">
             <label for="credentialSelect">
               <i class="fas fa-key"></i> Select Hosting Account
             </label>
@@ -903,6 +903,109 @@
                 </div>
               </div>
             </div>
+          </div> -->
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cpanelHost"
+                ><i class="fas fa-server"></i> cPanel Host</label
+              >
+              <input
+                type="text"
+                name="cpanelHost"
+                id="cpanelHost"
+                class="form-control"
+                placeholder="mydomain.com or server IP"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="cpanelPort"
+                ><i class="fas fa-network-wired"></i> cPanel Port</label
+              >
+              <input
+                type="number"
+                name="cpanelPort"
+                id="cpanelPort"
+                class="form-control"
+                value="2083"
+                placeholder="2083"
+                required
+              />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cpanelUsername"
+                ><i class="fas fa-user"></i> cPanel Username</label
+              >
+              <input
+                type="text"
+                name="cpanelUsername"
+                id="cpanelUsername"
+                class="form-control"
+                placeholder="cpanel_username"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="cpanelPassword"
+                ><i class="fas fa-lock"></i> cPanel Password</label
+              >
+              <input
+                type="password"
+                name="cpanelPassword"
+                id="cpanelPassword"
+                class="form-control"
+                placeholder="cpanel_password"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label><i class="fas fa-key"></i> Selected Hosting Account</label>
+            <div
+              class="credential-info"
+              id="credentialInfo"
+              style="display: block; margin-bottom: 10px"
+            >
+              <div class="credential-info-content">
+                <div class="credential-info-item">
+                  <i class="fas fa-server"></i>
+                  <div>
+                    <label>Host</label>
+                    <span id="selectedHost"></span>
+                  </div>
+                </div>
+                <div class="credential-info-item">
+                  <i class="fas fa-user"></i>
+                  <div>
+                    <label>Username</label>
+                    <span id="selectedUsername"></span>
+                  </div>
+                </div>
+                <div class="credential-info-item">
+                  <i class="fas fa-network-wired"></i>
+                  <div>
+                    <label>Port</label>
+                    <span id="selectedPort"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              id="validateHostingBtn"
+            >
+              <i class="fas fa-check"></i> Check Hosting Connection
+            </button>
+            <div
+              id="hostingValidationResult"
+              class="result"
+              style="display: none"
+            ></div>
           </div>
 
           <div class="form-row">
@@ -980,64 +1083,6 @@
               </label>
             </div>
             <div id="selectedFile" class="selected-file"></div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="cpanelHost"
-                ><i class="fas fa-server"></i> cPanel Host</label
-              >
-              <input
-                type="text"
-                name="cpanelHost"
-                id="cpanelHost"
-                class="form-control"
-                placeholder="mydomain.com or server IP"
-                required
-              />
-            </div>
-            <div class="form-group">
-              <label for="cpanelPort"
-                ><i class="fas fa-network-wired"></i> cPanel Port</label
-              >
-              <input
-                type="number"
-                name="cpanelPort"
-                id="cpanelPort"
-                class="form-control"
-                value="2083"
-                placeholder="2083"
-                required
-              />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="cpanelUsername"
-                ><i class="fas fa-user"></i> cPanel Username</label
-              >
-              <input
-                type="text"
-                name="cpanelUsername"
-                id="cpanelUsername"
-                class="form-control"
-                placeholder="cpanel_username"
-                required
-              />
-            </div>
-            <div class="form-group">
-              <label for="cpanelPassword"
-                ><i class="fas fa-lock"></i> cPanel Password</label
-              >
-              <input
-                type="password"
-                name="cpanelPassword"
-                id="cpanelPassword"
-                class="form-control"
-                placeholder="cpanel_password"
-                required
-              />
-            </div>
           </div>
 
           <button type="submit" class="btn btn-primary btn-full" id="submitBtn">
@@ -2853,6 +2898,65 @@
 
       // Usage:
       element.innerHTML = renderDbInstructions(dbInstructions);
+
+      // In the JS, update the displayed host/username/port when the cPanel fields change, and implement the validateHostingBtn click to POST to /validate-credentials and show the result in hostingValidationResult.
+      document
+        .getElementById("cpanelHost")
+        .addEventListener("input", function () {
+          document.getElementById("selectedHost").textContent = this.value;
+        });
+
+      document
+        .getElementById("cpanelUsername")
+        .addEventListener("input", function () {
+          document.getElementById("selectedUsername").textContent = this.value;
+        });
+
+      document
+        .getElementById("cpanelPort")
+        .addEventListener("input", function () {
+          document.getElementById("selectedPort").textContent = this.value;
+        });
+
+      document
+        .getElementById("validateHostingBtn")
+        .addEventListener("click", function () {
+          const cpanelHost = document.getElementById("cpanelHost").value;
+          const cpanelUsername =
+            document.getElementById("cpanelUsername").value;
+          const cpanelPort = document.getElementById("cpanelPort").value;
+
+          fetch(`http://localhost:3001/validate-credentials`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ cpanelHost, cpanelUsername, cpanelPort }),
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.success) {
+                document.getElementById("hostingValidationResult").innerHTML =
+                  "<p style='color: green;'>Hosting connection validated successfully!</p>";
+                document.getElementById(
+                  "hostingValidationResult"
+                ).style.display = "block";
+              } else {
+                document.getElementById("hostingValidationResult").innerHTML =
+                  "<p style='color: red;'>Failed to validate hosting connection. Please check your credentials.</p>";
+                document.getElementById(
+                  "hostingValidationResult"
+                ).style.display = "block";
+              }
+            })
+            .catch((error) => {
+              console.error("Error validating hosting connection:", error);
+              document.getElementById("hostingValidationResult").innerHTML =
+                "<p style='color: red;'>An error occurred while validating the hosting connection.</p>";
+              document.getElementById("hostingValidationResult").style.display =
+                "block";
+            });
+        });
     </script>
   </body>
 </html>

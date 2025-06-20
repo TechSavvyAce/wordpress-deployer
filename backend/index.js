@@ -60,9 +60,6 @@ const upload = multer({ storage });
 // Helper function to get jobs directory
 const getJobsPath = () => path.join(__dirname, "../jobs");
 
-// Helper function to get credentials directory
-const getCredentialsPath = () => path.join(__dirname, "../credentials");
-
 // Helper function to get templates directory
 const getTemplatesPath = () => path.join(__dirname, "./templates");
 
@@ -77,7 +74,7 @@ const validateJob = (jobId) => {
 
 // Ensure directories exist
 const ensureDirectories = () => {
-  const dirs = [getJobsPath(), getCredentialsPath()];
+  const dirs = [getJobsPath()];
   dirs.forEach((dir) => {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -377,121 +374,6 @@ app.post("/validate-credentials-stream", async (req, res) => {
   }
 });
 
-// POST /save-credentials - Save validated credentials
-app.post("/save-credentials", async (req, res) => {
-  try {
-    const { host, username, password, port = 2083, name } = req.body;
-
-    if (!host || !username || !password || !name) {
-      return res.status(400).json({
-        error: "Missing required fields",
-        required: ["host", "username", "password", "name"],
-      });
-    }
-
-    // Validate credentials first
-    const validationResult = await validateCpanelCredentials({
-      host,
-      username,
-      password,
-      port,
-    });
-
-    if (!validationResult.valid) {
-      return res.status(400).json({
-        error: "Invalid credentials",
-        details: validationResult.message,
-      });
-    }
-
-    // Save credentials (encrypted in production)
-    const credentials = {
-      id: uuidv4(),
-      name,
-      host: validationResult.host,
-      username,
-      password, // In production, encrypt this
-      port,
-      validatedAt: new Date().toISOString(),
-      lastUsed: null,
-    };
-
-    const credentialsPath = path.join(
-      getCredentialsPath(),
-      `${credentials.id}.json`
-    );
-    fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2));
-
-    res.json({
-      success: true,
-      message: "Credentials saved successfully",
-      credentialId: credentials.id,
-      name: credentials.name,
-    });
-  } catch (error) {
-    console.error("Error saving credentials:", error);
-    res.status(500).json({
-      error: "Failed to save credentials",
-      details: error.message,
-    });
-  }
-});
-
-// GET /credentials - List saved credentials
-app.get("/credentials", (req, res) => {
-  try {
-    const credentialsPath = getCredentialsPath();
-    if (!fs.existsSync(credentialsPath)) {
-      return res.json({ credentials: [] });
-    }
-
-    const credentialFiles = fs
-      .readdirSync(credentialsPath)
-      .filter((file) => file.endsWith(".json"));
-    const credentials = credentialFiles.map((file) => {
-      const credentialData = JSON.parse(
-        fs.readFileSync(path.join(credentialsPath, file))
-      );
-      return {
-        id: credentialData.id,
-        name: credentialData.name,
-        host: credentialData.host,
-        username: credentialData.username,
-        password: credentialData.password,
-        port: credentialData.port,
-        validatedAt: credentialData.validatedAt,
-        lastUsed: credentialData.lastUsed,
-      };
-    });
-
-    res.json({ credentials });
-  } catch (error) {
-    console.error("Error listing credentials:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to list credentials", details: error.message });
-  }
-});
-
-// DELETE /credentials/:id - Delete saved credentials
-app.delete("/credentials/:id", (req, res) => {
-  try {
-    const { id } = req.params;
-    const credentialPath = path.join(getCredentialsPath(), `${id}.json`);
-
-    if (!fs.existsSync(credentialPath)) {
-      return res.status(404).json({ error: "Credential not found" });
-    }
-
-    fs.unlinkSync(credentialPath);
-    res.json({ message: "Credential deleted successfully", id });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ error: "Failed to delete credential", details: error.message });
-  }
-});
-
 // GET /jobs - List all jobs
 app.get("/jobs", (req, res) => {
   try {
@@ -626,10 +508,6 @@ app.post("/upload/:jobId", async (req, res) => {
     jobData.status = "uploaded";
     jobData.uploadCompletedAt = new Date().toISOString();
     fs.writeFileSync(jobPath, JSON.stringify(jobData, null, 2));
-
-    // Update credential last used
-    credentials.lastUsed = new Date().toISOString();
-    fs.writeFileSync(credentialPath, JSON.stringify(credentials, null, 2));
 
     res.json({
       message: "Files uploaded successfully!",
@@ -842,10 +720,6 @@ app.post("/upload/:jobId/stream", async (req, res) => {
       jobData.status = "uploaded";
       jobData.uploadCompletedAt = new Date().toISOString();
       fs.writeFileSync(jobPath, JSON.stringify(jobData, null, 2));
-
-      // Update credential last used
-      credentials.lastUsed = new Date().toISOString();
-      fs.writeFileSync(credentialPath, JSON.stringify(credentials, null, 2));
 
       sendLog("🎉 Deployment completed successfully!", "success");
 
@@ -1220,7 +1094,6 @@ app.listen(port, () => {
     `🚀 WordPress Deployer Server running on http://localhost:${port}`
   );
   console.log(`📁 Jobs directory: ${getJobsPath()}`);
-  console.log(`📁 Credentials directory: ${getCredentialsPath()}`);
   console.log(`📁 Uploads directory: ${path.join(__dirname, "../uploads")}`);
 });
 
