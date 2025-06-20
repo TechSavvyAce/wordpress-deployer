@@ -831,12 +831,12 @@
         <div class="nav-tab active" data-tab="deploy">
           <i class="fas fa-rocket"></i> Deploy Site
         </div>
-        <div class="nav-tab" data-tab="templates">
+        <!-- <div class="nav-tab" data-tab="templates">
           <i class="fas fa-palette"></i> Manage Templates
         </div>
         <div class="nav-tab" data-tab="jobs">
           <i class="fas fa-list"></i> View Jobs
-        </div>
+        </div> -->
       </div>
 
       <!-- Deploy Tab -->
@@ -855,55 +855,6 @@
               <option value="">Loading templates...</option>
             </select>
           </div>
-
-          <!-- <div class="form-group">
-            <label for="credentialSelect">
-              <i class="fas fa-key"></i> Select Hosting Account
-            </label>
-            <div class="credential-selector">
-              <select
-                name="credentialId"
-                id="credentialSelect"
-                class="form-control"
-                required
-              >
-                <option value="">Select hosting account...</option>
-              </select>
-              <button
-                type="button"
-                class="btn btn-secondary"
-                onclick="switchToCredentialsTab()"
-              >
-                <i class="fas fa-plus"></i> Add New
-              </button>
-            </div>
-            <div
-              id="credentialInfo"
-              class="credential-info"
-              style="display: none"
-            >
-              <div class="credential-info-header" id="credentialInfoHeader">
-                <i class="fas fa-check-circle" id="headerIcon"></i>
-                <span>Selected Hosting Account</span>
-              </div>
-              <div class="credential-info-content">
-                <div class="credential-info-item">
-                  <i class="fas fa-globe"></i>
-                  <div>
-                    <label>Domain</label>
-                    <span id="selectedDomain"></span>
-                  </div>
-                </div>
-                <div class="credential-info-item">
-                  <i class="fas fa-server"></i>
-                  <div>
-                    <label>Host</label>
-                    <span id="selectedHost"></span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div> -->
 
           <div class="form-row">
             <div class="form-group">
@@ -964,7 +915,10 @@
           </div>
 
           <div class="form-group">
-            <label><i class="fas fa-key"></i> Selected Hosting Account</label>
+            <label
+              ><i class="fas fa-key"></i> Selected Hosting Account
+              <span id="hostingValidIcon" style="margin-left: 8px"></span>
+            </label>
             <div
               class="credential-info"
               id="credentialInfo"
@@ -999,7 +953,7 @@
               class="btn btn-secondary"
               id="validateHostingBtn"
             >
-              <i class="fas fa-check"></i> Check Hosting Connection
+              <i class="fas fa-check"></i> Validate
             </button>
             <div
               id="hostingValidationResult"
@@ -1287,17 +1241,29 @@
           existingLogs.forEach((log) => log.remove());
 
           // Load data for the tab
-          if (tab.dataset.tab === "credentials") {
-            loadCredentials();
-          } else if (tab.dataset.tab === "jobs") {
+          if (tab.dataset.tab === "jobs") {
             loadJobs();
           } else if (tab.dataset.tab === "templates") {
             loadTemplatesForManagement();
           } else if (tab.dataset.tab === "deploy") {
-            loadCredentialsForDeploy();
             loadTemplates();
           }
         });
+      });
+
+      // On page load, load templates for deploy form
+      document.addEventListener("DOMContentLoaded", function () {
+        loadTemplates();
+        document
+          .getElementById("cpanelHost")
+          .addEventListener("input", updateHostingAccountDisplay);
+        document
+          .getElementById("cpanelUsername")
+          .addEventListener("input", updateHostingAccountDisplay);
+        document
+          .getElementById("cpanelPort")
+          .addEventListener("input", updateHostingAccountDisplay);
+        updateHostingAccountDisplay();
       });
 
       // Load credentials for deploy form
@@ -1973,441 +1939,6 @@
         }
       });
 
-      // Credential form handling (in modal)
-      const credentialForm = document.getElementById("credentialForm");
-      const validateBtn = document.getElementById("validateBtn");
-      const validateBtnText = validateBtn.querySelector(".btn-text");
-      const validateLoading = validateBtn.querySelector(".loading");
-
-      credentialForm.addEventListener("submit", async function (e) {
-        e.preventDefault();
-
-        // Show loading state
-        validateBtn.disabled = true;
-        validateBtnText.style.display = "none";
-        validateLoading.style.display = "flex";
-
-        try {
-          const credentialData = {
-            name: document.getElementById("credentialName").value,
-            host: document.getElementById("credentialHost").value,
-            username: document.getElementById("credentialUsername").value,
-            password: document.getElementById("credentialPassword").value,
-            port:
-              parseInt(document.getElementById("credentialPort").value) || 2083,
-          };
-
-          // First validate credentials with streaming logs
-          const validateWithStreaming = async () => {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
-
-            try {
-              const response = await fetch(
-                "http://localhost:3001/validate-credentials-stream",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify(credentialData),
-                  signal: controller.signal,
-                }
-              );
-
-              clearTimeout(timeoutId);
-
-              // Handle streaming response
-              const reader = response.body.getReader();
-              const decoder = new TextDecoder();
-              let validationResult = null;
-              let logs = [];
-
-              // Get or create log display
-              let logContainer = document.querySelector(".validation-logs");
-              if (!logContainer) {
-                logContainer = document.createElement("div");
-                logContainer.className = "validation-logs";
-                logContainer.style.cssText = `
-                  background: #f8fafc;
-                  border: 1px solid #e5e7eb;
-                  border-radius: 8px;
-                  padding: 15px;
-                  margin: 15px 0;
-                  max-height: 200px;
-                  overflow-y: auto;
-                  font-family: monospace;
-                  font-size: 0.9rem;
-                  line-height: 1.4;
-                `;
-
-                const logTitle = document.createElement("div");
-                logTitle.innerHTML = "<strong>🔍 Validation Progress:</strong>";
-                logTitle.style.marginBottom = "10px";
-                logContainer.appendChild(logTitle);
-
-                const logContent = document.createElement("div");
-                logContent.id = "validationLogContent";
-                logContainer.appendChild(logContent);
-
-                // Insert log container before the result div
-                const resultDiv = document.getElementById("credentialResult");
-                resultDiv.parentNode.insertBefore(logContainer, resultDiv);
-              } else {
-                // Clear existing logs and update title
-                const logContent = logContainer.querySelector(
-                  "#validationLogContent"
-                );
-                if (logContent) {
-                  logContent.innerHTML = "";
-                }
-                const logTitle = logContainer.querySelector("div");
-                if (logTitle) {
-                  logTitle.innerHTML =
-                    "<strong>🔍 Validation Progress:</strong>";
-                }
-              }
-
-              const logContent = logContainer.querySelector(
-                "#validationLogContent"
-              );
-
-              try {
-                while (true) {
-                  const { done, value } = await reader.read();
-                  if (done) break;
-
-                  const chunk = decoder.decode(value);
-                  const lines = chunk.split("\n");
-
-                  for (const line of lines) {
-                    if (line.startsWith("data: ")) {
-                      try {
-                        const data = JSON.parse(line.slice(6));
-
-                        if (data.type === "log") {
-                          logs.push(data.message);
-                          logContent.innerHTML += `<div style="margin: 2px 0; color: #374151;">${data.message}</div>`;
-                          logContainer.scrollTop = logContainer.scrollHeight;
-                        } else if (data.type === "success") {
-                          validationResult = { success: true, ...data };
-                          logContent.innerHTML += `<div style="margin: 2px 0; color: #065f46; font-weight: bold;">✅ ${data.message}</div>`;
-                        } else if (data.type === "error") {
-                          validationResult = { success: false, ...data };
-                          logContent.innerHTML += `<div style="margin: 2px 0; color: #991b1b; font-weight: bold;">❌ ${data.message}</div>`;
-                        }
-                      } catch (e) {
-                        console.error("Error parsing SSE data:", e);
-                      }
-                    }
-                  }
-                }
-              } finally {
-                reader.releaseLock();
-              }
-
-              if (!validationResult) {
-                throw new Error("No validation result received");
-              }
-
-              return {
-                ok: validationResult.success,
-                json: () => Promise.resolve(validationResult),
-              };
-            } catch (error) {
-              clearTimeout(timeoutId);
-              if (error.name === "AbortError") {
-                throw new Error(
-                  "Validation timeout - server took too long to respond"
-                );
-              }
-              throw error;
-            }
-          };
-
-          const validateResponse = await validateWithStreaming();
-          const validateData = await validateResponse.json();
-
-          if (validateResponse.ok && validateData.success) {
-            // Save credentials
-            const saveResponse = await fetch(
-              "http://localhost:3001/save-credentials",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify(credentialData),
-              }
-            );
-
-            const saveData = await saveResponse.json();
-
-            if (saveResponse.ok) {
-              showCredentialResult(
-                "success",
-                "Credentials Saved Successfully!",
-                saveData
-              );
-              showSuccessToast("Credentials saved successfully!");
-              credentialForm.reset();
-              loadCredentialsForDeploy(); // Refresh the deploy form
-              loadCredentials(); // Refresh the credentials tab
-
-              // Auto-switch back to deploy tab after 2 seconds
-              setTimeout(() => {
-                document
-                  .querySelectorAll(".nav-tab")
-                  .forEach((t) => t.classList.remove("active"));
-                document
-                  .querySelectorAll(".tab-content")
-                  .forEach((c) => c.classList.remove("active"));
-                document
-                  .querySelector('[data-tab="deploy"]')
-                  .classList.add("active");
-                document.getElementById("deploy-tab").classList.add("active");
-              }, 2000);
-            } else {
-              showCredentialResult(
-                "error",
-                "Failed to Save Credentials",
-                saveData
-              );
-            }
-          } else {
-            console.error("Credential validation error:", validateData);
-
-            let errorMessage = "Network Error";
-            let errorDetails = validateData.error || validateData.message;
-
-            if (validateData.error && validateData.error.includes("timeout")) {
-              errorMessage = "Validation Timeout";
-              errorDetails =
-                "The server took too long to respond. This could mean:\n" +
-                "• The hosting server is slow or overloaded\n" +
-                "• Network connection issues\n" +
-                "• The credentials might be invalid\n\n" +
-                "You can try again or check your credentials.";
-            } else if (
-              validateData.error &&
-              validateData.error.includes("Failed to fetch")
-            ) {
-              errorMessage = "Connection Error";
-              errorDetails =
-                "Cannot connect to the validation server. Please check your internet connection.";
-            }
-
-            showCredentialResult("error", errorMessage, {
-              error: errorDetails,
-              suggestion:
-                "Please check your credentials and try again, or contact your hosting provider if the issue persists.",
-            });
-          }
-        } catch (error) {
-          console.error("Credential validation error:", error);
-
-          let errorMessage = "Network Error";
-          let errorDetails = error.message;
-
-          if (error.message.includes("timeout")) {
-            errorMessage = "Validation Timeout";
-            errorDetails =
-              "The server took too long to respond. This could mean:\n" +
-              "• The hosting server is slow or overloaded\n" +
-              "• Network connection issues\n" +
-              "• The credentials might be invalid\n\n" +
-              "You can try again or check your credentials.";
-          } else if (error.message.includes("Failed to fetch")) {
-            errorMessage = "Connection Error";
-            errorDetails =
-              "Cannot connect to the validation server. Please check your internet connection.";
-          }
-
-          showCredentialResult("error", errorMessage, {
-            error: errorDetails,
-            suggestion:
-              "Please check your credentials and try again, or contact your hosting provider if the issue persists.",
-          });
-        } finally {
-          // Reset button state
-          validateBtn.disabled = false;
-          validateBtnText.style.display = "flex";
-          validateLoading.style.display = "none";
-        }
-      });
-
-      function showCredentialResult(type, title, data) {
-        const credentialResult = document.getElementById("credentialResult");
-        credentialResult.className = `result ${type}`;
-        credentialResult.innerHTML = `
-              <h3><i class="fas fa-${
-                type === "success" ? "check-circle" : "exclamation-circle"
-              }"></i> ${title}</h3>
-              <pre>${JSON.stringify(data, null, 2)}</pre>
-          `;
-        credentialResult.style.display = "block";
-        credentialResult.scrollIntoView({ behavior: "smooth" });
-      }
-
-      // Load credentials for credentials tab
-      async function loadCredentials() {
-        try {
-          const response = await fetch("http://localhost:3001/credentials");
-          const data = await response.json();
-
-          const credentialsList = document.getElementById("credentialsList");
-
-          if (data.credentials.length === 0) {
-            credentialsList.innerHTML =
-              '<p style="text-align: center; color: #6b7280; padding: 20px;">No saved credentials found.</p>';
-            return;
-          }
-
-          credentialsList.innerHTML = data.credentials
-            .map(
-              (cred) => `
-            <div class="credential-item">
-              <div class="credential-info">
-                <h4>${cred.name}</h4>
-                <p><strong>Host:</strong> ${cred.host}</p>
-                <p><strong>Username:</strong> ${cred.username}</p>
-                <p><strong>Validated:</strong> ${new Date(
-                  cred.validatedAt
-                ).toLocaleDateString()}</p>
-                ${
-                  cred.lastUsed
-                    ? `<p><strong>Last Used:</strong> ${new Date(
-                        cred.lastUsed
-                      ).toLocaleDateString()}</p>`
-                    : ""
-                }
-              </div>
-              <div class="credential-actions">
-                <button class="btn btn-danger" onclick="deleteCredential('${
-                  cred.id
-                }')">
-                  <i class="fas fa-trash"></i> Delete
-                </button>
-              </div>
-            </div>
-          `
-            )
-            .join("");
-        } catch (error) {
-          console.error("Error loading credentials:", error);
-        }
-      }
-
-      // Delete credential
-      async function deleteCredential(id) {
-        showConfirmDialog(
-          "Delete Credential",
-          "Are you sure you want to delete this credential?",
-          () => performDeleteCredential(id)
-        );
-      }
-
-      async function performDeleteCredential(id) {
-        try {
-          const response = await fetch(
-            `http://localhost:3001/credentials/${id}`,
-            {
-              method: "DELETE",
-            }
-          );
-
-          if (response.ok) {
-            // Refresh both tabs
-            loadCredentials(); // Refresh the credentials tab
-            loadCredentialsForDeploy(); // Refresh deploy form
-
-            // Show success message if we're on the credentials tab
-            const credentialsTab = document.getElementById("credentials-tab");
-            if (credentialsTab.classList.contains("active")) {
-              showCredentialResult(
-                "success",
-                "Credential Deleted Successfully!",
-                {
-                  message:
-                    "The credential has been removed from your saved list",
-                }
-              );
-            }
-            showSuccessToast("Credential deleted successfully!");
-          } else {
-            showErrorToast("Failed to delete credential");
-          }
-        } catch (error) {
-          console.error("Error deleting credential:", error);
-          showErrorToast("Error deleting credential");
-        }
-      }
-
-      // Remove invalid credential from error message
-      async function removeInvalidCredential(id, name) {
-        showConfirmDialog(
-          "Remove Invalid Credential",
-          `Are you sure you want to remove "${name}" from your saved credentials?`,
-          () => performRemoveInvalidCredential(id, name)
-        );
-      }
-
-      async function performRemoveInvalidCredential(id, name) {
-        try {
-          const response = await fetch(
-            `http://localhost:3001/credentials/${id}`,
-            {
-              method: "DELETE",
-            }
-          );
-
-          if (response.ok) {
-            // Refresh both tabs
-            loadCredentials(); // Refresh the credentials tab
-            loadCredentialsForDeploy(); // Refresh deploy form
-
-            // Show success message
-            showSuccessToast(`"${name}" removed from saved credentials`);
-          } else {
-            showErrorToast("Failed to remove credential");
-          }
-        } catch (error) {
-          console.error("Error removing credential:", error);
-          showErrorToast("Error removing credential");
-        }
-      }
-
-      // Use credential anyway (skip validation)
-      function useCredentialAnyway() {
-        // Get the credential that was being validated
-        const credentialSelect = document.getElementById("credentialSelect");
-        const credentialId = credentialSelect.value;
-
-        if (credentialId) {
-          selectedCredential = savedCredentials.find(
-            (c) => c.id === credentialId
-          );
-          if (selectedCredential) {
-            // Set up the credential info display
-            document.getElementById("selectedDomain").textContent =
-              selectedCredential.host;
-            document.getElementById("selectedHost").textContent =
-              selectedCredential.host;
-            document.getElementById("credentialInfo").style.display = "block";
-
-            // Auto-fill email with domain
-            const emailInput = document.getElementById("email");
-            if (!emailInput.value) {
-              emailInput.placeholder = `admin@${selectedCredential.host}`;
-            }
-
-            showWarningToast(
-              `Using "${selectedCredential.name}" without validation`
-            );
-          }
-        }
-      }
-
       // Load jobs
       async function loadJobs() {
         try {
@@ -2957,6 +2488,98 @@
                 "block";
             });
         });
+
+      document
+        .getElementById("cpanelHost")
+        .addEventListener("input", updateHostingAccountDisplay);
+      document
+        .getElementById("cpanelUsername")
+        .addEventListener("input", updateHostingAccountDisplay);
+      document
+        .getElementById("cpanelPort")
+        .addEventListener("input", updateHostingAccountDisplay);
+
+      let lastValidationStatus = null;
+
+      function updateHostingAccountDisplay() {
+        const host = document.getElementById("cpanelHost").value.trim();
+        const user = document.getElementById("cpanelUsername").value.trim();
+        const port = document.getElementById("cpanelPort").value.trim();
+        document.getElementById("selectedHost").textContent = host;
+        document.getElementById("selectedUsername").textContent = user;
+        document.getElementById("selectedPort").textContent = port;
+        const icon = document.getElementById("hostingValidIcon");
+        // If last validation was success and values haven't changed, keep green
+        if (
+          lastValidationStatus === "success" &&
+          host &&
+          user &&
+          port &&
+          host === lastValidated.host &&
+          user === lastValidated.user &&
+          port === lastValidated.port
+        ) {
+          icon.innerHTML =
+            '<i class="fas fa-check-circle" style="color:#10b981;"></i>';
+        } else {
+          icon.innerHTML =
+            '<i class="fas fa-times-circle" style="color:#ef4444;"></i>';
+        }
+      }
+
+      let lastValidated = { host: "", user: "", port: "" };
+
+      // Validate button logic
+      const validateBtn = document.getElementById("validateHostingBtn");
+      validateBtn.addEventListener("click", async function () {
+        const host = document.getElementById("cpanelHost").value.trim();
+        const user = document.getElementById("cpanelUsername").value.trim();
+        const pass = document.getElementById("cpanelPassword").value;
+        const port = document.getElementById("cpanelPort").value.trim();
+        const icon = document.getElementById("hostingValidIcon");
+        const resultDiv = document.getElementById("hostingValidationResult");
+        resultDiv.style.display = "block";
+        resultDiv.innerHTML = "<span>Validating...</span>";
+        lastValidationStatus = null;
+        try {
+          const response = await fetch(
+            "http://localhost:3001/validate-credentials",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                host,
+                username: user,
+                password: pass,
+                port: port || 2083,
+              }),
+            }
+          );
+          const data = await response.json();
+          if (data.success) {
+            icon.innerHTML =
+              '<i class="fas fa-check-circle" style="color:#10b981;"></i>';
+            resultDiv.innerHTML =
+              "<span style='color:#10b981;'>Hosting connection validated successfully!</span>";
+            lastValidationStatus = "success";
+            lastValidated = { host, user, port };
+          } else {
+            icon.innerHTML =
+              '<i class="fas fa-times-circle" style="color:#ef4444;"></i>';
+            resultDiv.innerHTML =
+              "<span style='color:#ef4444;'>Failed to validate hosting connection. Please check your credentials.</span>";
+            lastValidationStatus = "fail";
+          }
+        } catch (error) {
+          icon.innerHTML =
+            '<i class="fas fa-times-circle" style="color:#ef4444;"></i>';
+          resultDiv.innerHTML =
+            "<span style='color:#ef4444;'>An error occurred while validating the hosting connection.</span>";
+          lastValidationStatus = "fail";
+        }
+      });
+      // Call once on load to initialize
+      updateHostingAccountDisplay();
     </script>
   </body>
 </html>
