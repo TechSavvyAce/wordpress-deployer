@@ -88,9 +88,20 @@ const ensureDirectories = () => {
 ensureDirectories();
 
 // POST /deploy - Create a new deployment job
-app.post("/deploy", upload.single("logo"), (req, res) => {
+app.post("/deploy", upload.single("logo"), async (req, res) => {
   try {
-    const { template, domain, email, phone, address, title } = req.body;
+    const {
+      template,
+      domain,
+      email,
+      phone,
+      address,
+      title,
+      cpanelHost,
+      cpanelUsername,
+      cpanelPassword,
+      cpanelPort,
+    } = req.body;
     const logo = req.file ? req.file.filename : null;
 
     // Validate required fields
@@ -101,7 +112,10 @@ app.post("/deploy", upload.single("logo"), (req, res) => {
       !phone ||
       !address ||
       !logo ||
-      !title
+      !title ||
+      !cpanelHost ||
+      !cpanelUsername ||
+      !cpanelPassword
     ) {
       return res.status(400).json({
         error: "Missing required fields",
@@ -113,6 +127,9 @@ app.post("/deploy", upload.single("logo"), (req, res) => {
           "address",
           "logo",
           "title",
+          "cpanelHost",
+          "cpanelUsername",
+          "cpanelPassword",
         ],
         received: {
           template,
@@ -122,6 +139,9 @@ app.post("/deploy", upload.single("logo"), (req, res) => {
           address,
           logo: !!logo,
           title,
+          cpanelHost,
+          cpanelUsername,
+          cpanelPassword,
         },
       });
     }
@@ -156,11 +176,27 @@ app.post("/deploy", upload.single("logo"), (req, res) => {
     const jobPath = path.join(getJobsPath(), `${jobId}.json`);
     fs.writeFileSync(jobPath, JSON.stringify(jobData, null, 2));
 
+    // Prepare hostConfig for deployment
+    const hostConfig = {
+      host: cpanelHost,
+      user: cpanelUsername,
+      pass: cpanelPassword,
+      port: cpanelPort || 2083,
+    };
+
+    // Call uploadToFtp directly with hostConfig and jobData
+    await uploadToFtp(hostConfig, jobData);
+
+    // Update job status to completed
+    jobData.status = "uploaded";
+    jobData.uploadCompletedAt = new Date().toISOString();
+    fs.writeFileSync(jobPath, JSON.stringify(jobData, null, 2));
+
     res.json({
-      message: "Deployment job created successfully!",
+      message: "Files uploaded and deployment started successfully!",
       jobId,
-      jobData,
-      nextStep: `Use POST /upload/${jobId} with cPanel credentials to deploy`,
+      domain: jobData.domain,
+      nextStep: `Visit https://${jobData.domain}/install.php to complete WordPress installation`,
     });
   } catch (error) {
     console.error("Error creating job:", error);
