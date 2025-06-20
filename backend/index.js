@@ -90,15 +90,39 @@ ensureDirectories();
 // POST /deploy - Create a new deployment job
 app.post("/deploy", upload.single("logo"), (req, res) => {
   try {
-    const { template, domain, email, phone, address } = req.body;
+    const { template, domain, email, phone, address, title } = req.body;
     const logo = req.file ? req.file.filename : null;
 
     // Validate required fields
-    if (!template || !domain || !email || !phone || !address || !logo) {
+    if (
+      !template ||
+      !domain ||
+      !email ||
+      !phone ||
+      !address ||
+      !logo ||
+      !title
+    ) {
       return res.status(400).json({
         error: "Missing required fields",
-        required: ["template", "domain", "email", "phone", "address", "logo"],
-        received: { template, domain, email, phone, address, logo: !!logo },
+        required: [
+          "template",
+          "domain",
+          "email",
+          "phone",
+          "address",
+          "logo",
+          "title",
+        ],
+        received: {
+          template,
+          domain,
+          email,
+          phone,
+          address,
+          logo: !!logo,
+          title,
+        },
       });
     }
 
@@ -123,6 +147,7 @@ app.post("/deploy", upload.single("logo"), (req, res) => {
       email,
       phone,
       address,
+      title,
       logo,
       status: "created",
       timestamp: new Date().toISOString(),
