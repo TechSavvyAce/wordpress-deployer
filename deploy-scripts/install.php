@@ -105,10 +105,10 @@ if (empty($domain) || empty($admin_email) || empty($db_name) || empty($db_user) 
 // === Step 2: Define WordPress Constants and Load Core ===
 
 // Define database constants for wp-config.php
-define('DB_NAME', $db_name);
-define('DB_USER', $db_user);
-define('DB_PASSWORD', $db_password);
-define('DB_HOST', 'localhost'); // cPanel usually uses 'localhost' for MySQL
+if (!defined('DB_NAME'))     define('DB_NAME', $db_name);
+if (!defined('DB_USER'))     define('DB_USER', $db_user);
+if (!defined('DB_PASSWORD')) define('DB_PASSWORD', $db_password);
+if (!defined('DB_HOST'))     define('DB_HOST', 'localhost'); // cPanel usually uses 'localhost' for MySQL
 
 // Indicate that WordPress is being installed
 define('WP_INSTALLING', true);
