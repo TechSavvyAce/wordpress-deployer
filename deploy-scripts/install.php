@@ -298,9 +298,78 @@ if (file_exists($plugin_zip_path)) {
     echo "<p style=\"color:red;\">❌ All-in-One WP Migration ZIP file not found at {$plugin_zip_path}</p>";
 }
 
-// --- End Step 4 ---
+// === Step 5: Automate Logo Update ===
+echo "<h3>Automating logo update...</h3>";
 
-// === Step 5: Clean up job-info.json ===
+// Try to get logo file from job-info.json, else auto-detect
+$logo_file = '';
+if (!empty($jobData['logo'])) {
+    $logo_file = BASE_PATH . '/wp-content/uploads/' . $jobData['logo'];
+    echo "<p>Using logo file from job-info.json: <code>$logo_file</code></p>";
+} else {
+    // Auto-detect: find the most recent file with 'logo' in the name
+    $uploads_dir = BASE_PATH . '/wp-content/uploads/';
+    $logo_files = glob($uploads_dir . '*logo*.*');
+    usort($logo_files, function ($a, $b) {
+        return filemtime($b) - filemtime($a);
+    });
+    $logo_file = $logo_files[0] ?? '';
+    if ($logo_file) {
+        echo "<p>Auto-detected logo file: <code>$logo_file</code></p>";
+    }
+}
+
+if ($logo_file && file_exists($logo_file)) {
+    $cmd = "php '" . BASE_PATH . "/wp-cli.phar' media import '" . $logo_file . "' --title='Site Logo' --porcelain";
+    echo "<p>Running: <code>$cmd</code></p>";
+    $logo_id = trim(shell_exec($cmd));
+    if ($logo_id && is_numeric($logo_id)) {
+        $cmd2 = "php '" . BASE_PATH . "/wp-cli.phar' theme mod set custom_logo $logo_id";
+        echo "<p>Setting custom logo with: <code>$cmd2</code></p>";
+        $output = shell_exec($cmd2 . ' 2>&1');
+        echo "<pre>$output</pre>";
+        echo "<p>✅ Logo updated successfully! Attachment ID: $logo_id</p>";
+    } else {
+        echo "<p style='color:red;'>❌ Failed to import logo file. Check the file path and permissions.</p>";
+    }
+} else {
+    echo "<p style='color:red;'>❌ Logo file not found. Please check your deployment or job-info.json.</p>";
+}
+// --- End Step 5 ---
+
+// === Step 6: Automated Search & Replace for Site Personalization ===
+echo "<h3>Running automated search & replace for site personalization...</h3>";
+
+// Get new values from job-info.json
+define('NEW_ADDRESS', $jobData['address'] ?? '');
+define('NEW_PHONE', $jobData['phone'] ?? '');
+define('NEW_EMAIL', $jobData['email'] ?? '');
+define('NEW_DOMAIN', $jobData['domain'] ?? '');
+define('NEW_TITLE', $jobData['title'] ?? '');
+
+$wp_cli_phar = BASE_PATH . '/wp-cli.phar';
+$wp_cli_cmd = 'php ' . escapeshellarg($wp_cli_phar);
+
+function run_replace($search, $replace, $desc, $extra = '')
+{
+    global $wp_cli_cmd;
+    if ($search && $replace) {
+        $cmd = $wp_cli_cmd . ' search-replace ' . escapeshellarg($search) . ' ' . escapeshellarg($replace) . ' --skip-columns=guid --report-changed-only ' . $extra;
+        echo "<p>Replacing <b>$desc</b>: <code>$cmd</code></p>";
+        $output = shell_exec($cmd . ' 2>&1');
+        echo "<pre>$output</pre>";
+    }
+}
+
+run_replace('4425 Madisonville Rd, Hopkinsville, KY 42240', NEW_ADDRESS, 'Address');
+run_replace('+1 (719) 319-8181', NEW_PHONE, 'Phone');
+run_replace('support@' . NEW_DOMAIN, NEW_EMAIL, 'Email');
+run_replace('winmill-equipment.com', NEW_DOMAIN, 'Domain');
+run_replace('Winmill Equipment', NEW_TITLE, 'Title/Brand', '--regex');
+run_replace('WINMILL EQUIPMENT', NEW_TITLE, 'Title/Brand (uppercase)', '--regex');
+run_replace('winmill equipment', NEW_TITLE, 'Title/Brand (lowercase)', '--regex');
+
+// === Step 7: Clean up job-info.json ===
 if (file_exists($jobInfoPath)) {
     unlink($jobInfoPath);
     echo "<p>🗑️ Cleaned up job-info.json.</p>";
@@ -308,7 +377,7 @@ if (file_exists($jobInfoPath)) {
 
 echo "<p>✅ Automated deployment script finished.</p>";
 
-// === Step 6: Clean up install.php ===
+// === Step 8: Clean up install.php ===
 if (file_exists(__FILE__)) {
     unlink(__FILE__);
     echo "<p>🗑️ Cleaned up install.php. This script has self-destructed.</p>";
