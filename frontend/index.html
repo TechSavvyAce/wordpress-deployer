@@ -914,6 +914,7 @@
             </div>
           </div>
 
+          <!-- Live cPanel Credential Summary Card -->
           <div class="form-group">
             <label
               ><i class="fas fa-key"></i> Selected Hosting Account
@@ -948,19 +949,21 @@
                 </div>
               </div>
             </div>
-            <button
-              type="button"
-              class="btn btn-secondary"
-              id="validateHostingBtn"
-            >
-              <i class="fas fa-check"></i> Validate
-            </button>
-            <div
-              id="hostingValidationResult"
-              class="result"
-              style="display: none"
-            ></div>
           </div>
+          <!-- Validate Button and Result -->
+          <button
+            type="button"
+            class="btn btn-secondary"
+            id="validateHostingBtn"
+            style="margin-bottom: 10px"
+          >
+            <i class="fas fa-check"></i> Validate
+          </button>
+          <div
+            id="hostingValidationResult"
+            class="result"
+            style="display: none"
+          ></div>
 
           <div class="form-row">
             <div class="form-group">
@@ -1147,6 +1150,9 @@
     </div>
 
     <script>
+      let lastValidationStatus = null;
+      let lastValidated = { host: "", user: "", port: "" };
+
       // Global variables
       let savedCredentials = [];
       let selectedCredential = null;
@@ -1254,279 +1260,137 @@
       // On page load, load templates for deploy form
       document.addEventListener("DOMContentLoaded", function () {
         loadTemplates();
+
+        // Autofocus the first empty cPanel field for better UX
+        if (!document.getElementById("cpanelHost").value) {
+          document.getElementById("cpanelHost").focus();
+        } else if (!document.getElementById("cpanelUsername").value) {
+          document.getElementById("cpanelUsername").focus();
+        } else if (!document.getElementById("cpanelPassword").value) {
+          document.getElementById("cpanelPassword").focus();
+        }
+
+        // Live update hosting info and icon
         document
           .getElementById("cpanelHost")
-          .addEventListener("input", updateHostingAccountDisplay);
+          .addEventListener("input", function () {
+            document.getElementById("selectedHost").textContent = this.value;
+            updateHostingAccountDisplay();
+          });
         document
           .getElementById("cpanelUsername")
-          .addEventListener("input", updateHostingAccountDisplay);
+          .addEventListener("input", function () {
+            document.getElementById("selectedUsername").textContent =
+              this.value;
+            updateHostingAccountDisplay();
+          });
         document
           .getElementById("cpanelPort")
-          .addEventListener("input", updateHostingAccountDisplay);
+          .addEventListener("input", function () {
+            document.getElementById("selectedPort").textContent = this.value;
+            updateHostingAccountDisplay();
+          });
         updateHostingAccountDisplay();
+
+        // Validate button logic (attach only once, with null check)
+        const validateHostingBtn =
+          document.getElementById("validateHostingBtn");
+        if (validateHostingBtn) {
+          validateHostingBtn.addEventListener("click", async function () {
+            const host = document.getElementById("cpanelHost").value.trim();
+            const user = document.getElementById("cpanelUsername").value.trim();
+            const pass = document.getElementById("cpanelPassword").value;
+            const port = document.getElementById("cpanelPort").value.trim();
+            const icon = document.getElementById("hostingValidIcon");
+            if (!icon) return;
+            const resultDiv = document.getElementById(
+              "hostingValidationResult"
+            );
+            resultDiv.style.display = "block";
+            resultDiv.innerHTML =
+              '<span class="spinner" style="display:inline-block;width:18px;height:18px;border:2px solid #e5e7eb;border-top:2px solid #4f46e5;border-radius:50%;margin-right:8px;vertical-align:middle;animation:spin 1s linear infinite;"></span> Validating...';
+            validateHostingBtn.disabled = true;
+            lastValidationStatus = null;
+            // Highlight summary card
+            document.getElementById("credentialInfo").style.boxShadow =
+              "0 0 0 3px #a5b4fc";
+            try {
+              const response = await fetch(
+                "http://localhost:3001/validate-credentials",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    host,
+                    username: user,
+                    password: pass,
+                    port: port || 2083,
+                  }),
+                }
+              );
+              const data = await response.json();
+              if (data.success) {
+                icon.innerHTML =
+                  '<i class="fas fa-check-circle" style="color:#10b981;"></i>';
+                resultDiv.innerHTML =
+                  "<span style='color:#10b981;'>Hosting connection validated successfully!</span>";
+                lastValidationStatus = "success";
+                lastValidated = { host, user, port };
+                document.getElementById("credentialInfo").style.boxShadow =
+                  "0 0 0 3px #bbf7d0";
+              } else {
+                icon.innerHTML =
+                  '<i class="fas fa-times-circle" style="color:#ef4444;"></i>';
+                resultDiv.innerHTML =
+                  "<span style='color:#ef4444;'>Failed to validate hosting connection. Please check your credentials.</span>";
+                lastValidationStatus = "fail";
+                document.getElementById("credentialInfo").style.boxShadow =
+                  "0 0 0 3px #fecaca";
+              }
+            } catch (error) {
+              icon.innerHTML =
+                '<i class="fas fa-times-circle" style="color:#ef4444;"></i>';
+              resultDiv.innerHTML =
+                "<span style='color:#ef4444;'>An error occurred while validating the hosting connection.</span>";
+              lastValidationStatus = "fail";
+              document.getElementById("credentialInfo").style.boxShadow =
+                "0 0 0 3px #fecaca";
+            } finally {
+              validateHostingBtn.disabled = false;
+              resultDiv.scrollIntoView({ behavior: "smooth", block: "center" });
+              setTimeout(() => {
+                document.getElementById("credentialInfo").style.boxShadow = "";
+              }, 1200);
+            }
+          });
+        }
       });
 
-      // Load credentials for deploy form
-      async function loadCredentialsForDeploy() {
-        try {
-          const response = await fetch("http://localhost:3001/credentials");
-          const data = await response.json();
-          savedCredentials = data.credentials;
-
-          const credentialSelect = document.getElementById("credentialSelect");
-          const currentSelection = credentialSelect.value; // Preserve current selection
-
-          credentialSelect.innerHTML =
-            '<option value="">Select hosting account...</option>';
-
-          savedCredentials.forEach((cred) => {
-            const option = document.createElement("option");
-            option.value = cred.id;
-            option.textContent = `${cred.name} (${cred.host})`;
-            credentialSelect.appendChild(option);
-          });
-
-          // Restore the previous selection if it still exists
-          if (currentSelection) {
-            const stillExists = savedCredentials.find(
-              (c) => c.id === currentSelection
-            );
-            if (stillExists) {
-              credentialSelect.value = currentSelection;
-              // Trigger the change event to update the credential info display
-              credentialSelect.dispatchEvent(new Event("change"));
-            }
-          }
-        } catch (error) {
-          console.error("Error loading credentials:", error);
+      function updateHostingAccountDisplay() {
+        const host = document.getElementById("cpanelHost").value.trim();
+        const user = document.getElementById("cpanelUsername").value.trim();
+        const port = document.getElementById("cpanelPort").value.trim();
+        const icon = document.getElementById("hostingValidIcon");
+        if (!icon) return;
+        if (
+          lastValidationStatus === "success" &&
+          host &&
+          user &&
+          port &&
+          host === lastValidated.host &&
+          user === lastValidated.user &&
+          port === lastValidated.port
+        ) {
+          icon.innerHTML =
+            '<i class="fas fa-check-circle" style="color:#10b981;"></i>';
+        } else {
+          icon.innerHTML =
+            '<i class="fas fa-times-circle" style="color:#ef4444;"></i>';
         }
+        document.getElementById("selectedHost").textContent = host;
+        document.getElementById("selectedUsername").textContent = user;
+        document.getElementById("selectedPort").textContent = port;
       }
-
-      // Handle credential selection
-      document
-        .getElementById("credentialSelect")
-        .addEventListener("change", async function (e) {
-          const credentialId = e.target.value;
-          const credentialInfo = document.getElementById("credentialInfo");
-          const credentialSelect = e.target;
-
-          if (credentialId) {
-            // Find the selected credential first to show its name
-            selectedCredential = savedCredentials.find(
-              (c) => c.id === credentialId
-            );
-
-            if (selectedCredential) {
-              // Show credential info immediately
-              document.getElementById("selectedDomain").textContent =
-                selectedCredential.host;
-              document.getElementById("selectedHost").textContent =
-                selectedCredential.host;
-              credentialInfo.style.display = "block";
-
-              // Update header for validating state
-              const header = document.getElementById("credentialInfoHeader");
-              const headerIcon = document.getElementById("headerIcon");
-
-              // Update header styling for validating
-              header.className = "credential-info-header validating";
-              headerIcon.className = "fas fa-spinner";
-              headerIcon.style.animation = "spin 1s linear infinite";
-
-              // Auto-fill email with domain
-              const emailInput = document.getElementById("email");
-              if (!emailInput.value) {
-                emailInput.placeholder = `admin@${selectedCredential.host}`;
-              }
-
-              try {
-                // First validate credentials with streaming logs
-                const validateWithStreaming = async () => {
-                  const controller = new AbortController();
-                  const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
-
-                  // Construct credential data from selected credential
-                  const credentialData = {
-                    host: selectedCredential.host,
-                    username: selectedCredential.username,
-                    password: selectedCredential.password,
-                    port: selectedCredential.port || 2083,
-                  };
-
-                  try {
-                    const response = await fetch(
-                      "http://localhost:3001/validate-credentials-stream",
-                      {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify(credentialData),
-                        signal: controller.signal,
-                      }
-                    );
-
-                    clearTimeout(timeoutId);
-
-                    // Handle streaming response
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
-                    let validationResult = null;
-                    let logs = [];
-
-                    // Get or create log display
-                    let logContainer =
-                      document.querySelector(".validation-logs");
-                    if (!logContainer) {
-                      logContainer = document.createElement("div");
-                      logContainer.className = "validation-logs";
-                      logContainer.style.cssText = `
-                        background: #f8fafc;
-                        border: 1px solid #e5e7eb;
-                        border-radius: 8px;
-                        padding: 15px;
-                        margin: 15px 0;
-                        max-height: 200px;
-                        overflow-y: auto;
-                        font-family: monospace;
-                        font-size: 0.9rem;
-                        line-height: 1.4;
-                      `;
-
-                      const logTitle = document.createElement("div");
-                      logTitle.innerHTML =
-                        "<strong>🔍 Validation Progress:</strong>";
-                      logTitle.style.marginBottom = "10px";
-                      logContainer.appendChild(logTitle);
-
-                      const logContent = document.createElement("div");
-                      logContent.id = "validationLogContent";
-                      logContainer.appendChild(logContent);
-
-                      // Insert log container before the result div
-                      const resultDiv =
-                        document.getElementById("credentialResult");
-                      resultDiv.parentNode.insertBefore(
-                        logContainer,
-                        resultDiv
-                      );
-                    } else {
-                      // Clear existing logs and update title
-                      const logContent = logContainer.querySelector(
-                        "#validationLogContent"
-                      );
-                      if (logContent) {
-                        logContent.innerHTML = "";
-                      }
-                      const logTitle = logContainer.querySelector("div");
-                      if (logTitle) {
-                        logTitle.innerHTML =
-                          "<strong>🔍 Validation Progress:</strong>";
-                      }
-                    }
-
-                    const logContent = logContainer.querySelector(
-                      "#validationLogContent"
-                    );
-
-                    try {
-                      while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-
-                        const chunk = decoder.decode(value);
-                        const lines = chunk.split("\n");
-
-                        for (const line of lines) {
-                          if (line.startsWith("data: ")) {
-                            try {
-                              const data = JSON.parse(line.slice(6));
-
-                              if (data.type === "log") {
-                                logs.push(data.message);
-                                logContent.innerHTML += `<div style="margin: 2px 0; color: #374151;">${data.message}</div>`;
-                                logContainer.scrollTop =
-                                  logContainer.scrollHeight;
-                              } else if (data.type === "success") {
-                                validationResult = { success: true, ...data };
-                                logContent.innerHTML += `<div style="margin: 2px 0; color: #065f46; font-weight: bold;">✅ ${data.message}</div>`;
-                              } else if (data.type === "error") {
-                                validationResult = { success: false, ...data };
-                                logContent.innerHTML += `<div style="margin: 2px 0; color: #991b1b; font-weight: bold;">❌ ${data.message}</div>`;
-                              }
-                            } catch (e) {
-                              console.error("Error parsing SSE data:", e);
-                            }
-                          }
-                        }
-                      }
-                    } finally {
-                      reader.releaseLock();
-                    }
-
-                    if (!validationResult) {
-                      throw new Error("No validation result received");
-                    }
-
-                    return {
-                      ok: validationResult.success,
-                      json: () => Promise.resolve(validationResult),
-                    };
-                  } catch (error) {
-                    clearTimeout(timeoutId);
-                    if (error.name === "AbortError") {
-                      throw new Error(
-                        "Validation timeout - server took too long to respond"
-                      );
-                    }
-                    throw error;
-                  }
-                };
-
-                const validateResponse = await validateWithStreaming();
-                const validateData = await validateResponse.json();
-
-                if (validateResponse.ok && validateData.success) {
-                  // Update header for valid state
-                  header.className = "credential-info-header valid";
-                  headerIcon.className = "fas fa-check-circle";
-                  headerIcon.style.animation = "";
-
-                  showSuccessToast("Credential validated successfully!");
-                } else {
-                  // Update header for invalid state
-                  header.className = "credential-info-header invalid";
-                  headerIcon.className = "fas fa-times-circle";
-                  headerIcon.style.animation = "";
-
-                  // Reset selection
-                  selectedCredential = null;
-                  credentialSelect.value = "";
-                  credentialInfo.style.display = "none";
-
-                  showErrorToast("Invalid credentials");
-                }
-              } catch (error) {
-                console.error("Error validating credential:", error);
-
-                // Update header for error state
-                header.className = "credential-info-header error";
-                headerIcon.className = "fas fa-exclamation-circle";
-                headerIcon.style.animation = "";
-
-                // Reset selection
-                selectedCredential = null;
-                credentialSelect.value = "";
-                credentialInfo.style.display = "none";
-
-                showErrorToast("Failed to validate credentials");
-              }
-            }
-          } else {
-            selectedCredential = null;
-            credentialInfo.style.display = "none";
-          }
-        });
 
       // File input handling
       const fileInput = document.getElementById("logo");
@@ -2025,7 +1889,6 @@
         const existingLogs = document.querySelectorAll(".validation-logs");
         existingLogs.forEach((log) => log.remove());
 
-        loadCredentialsForDeploy();
         loadTemplates();
       });
 
@@ -2406,7 +2269,7 @@
           nextStepsDiv.innerHTML = `
             <h3 style="color:#059669;"><i class="fas fa-play-circle"></i> Proceed to WordPress Installation</h3>
             <p>Please create the database manually in cPanel, then visit the link below to complete WordPress installation:</p>
-            <a href="https://maplelawnequip.com/install.php" target="_blank" class="btn btn-primary" style="margin-top:18px; font-size:1.1rem;">
+            <a href="https://${domain}/install.php" target="_blank" class="btn btn-primary" style="margin-top:18px; font-size:1.1rem;">
               <i class="fas fa-link"></i> Open install.php
             </a>
             <div style="margin-top:12px; color:#6b7280; font-size:0.95rem;">This will finalize your WordPress site setup.</div>
@@ -2426,160 +2289,6 @@
         html += "</ul>";
         return html;
       }
-
-      // Usage:
-      element.innerHTML = renderDbInstructions(dbInstructions);
-
-      // In the JS, update the displayed host/username/port when the cPanel fields change, and implement the validateHostingBtn click to POST to /validate-credentials and show the result in hostingValidationResult.
-      document
-        .getElementById("cpanelHost")
-        .addEventListener("input", function () {
-          document.getElementById("selectedHost").textContent = this.value;
-        });
-
-      document
-        .getElementById("cpanelUsername")
-        .addEventListener("input", function () {
-          document.getElementById("selectedUsername").textContent = this.value;
-        });
-
-      document
-        .getElementById("cpanelPort")
-        .addEventListener("input", function () {
-          document.getElementById("selectedPort").textContent = this.value;
-        });
-
-      document
-        .getElementById("validateHostingBtn")
-        .addEventListener("click", function () {
-          const cpanelHost = document.getElementById("cpanelHost").value;
-          const cpanelUsername =
-            document.getElementById("cpanelUsername").value;
-          const cpanelPort = document.getElementById("cpanelPort").value;
-
-          fetch(`http://localhost:3001/validate-credentials`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ cpanelHost, cpanelUsername, cpanelPort }),
-          })
-            .then((response) => response.json())
-            .then((data) => {
-              if (data.success) {
-                document.getElementById("hostingValidationResult").innerHTML =
-                  "<p style='color: green;'>Hosting connection validated successfully!</p>";
-                document.getElementById(
-                  "hostingValidationResult"
-                ).style.display = "block";
-              } else {
-                document.getElementById("hostingValidationResult").innerHTML =
-                  "<p style='color: red;'>Failed to validate hosting connection. Please check your credentials.</p>";
-                document.getElementById(
-                  "hostingValidationResult"
-                ).style.display = "block";
-              }
-            })
-            .catch((error) => {
-              console.error("Error validating hosting connection:", error);
-              document.getElementById("hostingValidationResult").innerHTML =
-                "<p style='color: red;'>An error occurred while validating the hosting connection.</p>";
-              document.getElementById("hostingValidationResult").style.display =
-                "block";
-            });
-        });
-
-      document
-        .getElementById("cpanelHost")
-        .addEventListener("input", updateHostingAccountDisplay);
-      document
-        .getElementById("cpanelUsername")
-        .addEventListener("input", updateHostingAccountDisplay);
-      document
-        .getElementById("cpanelPort")
-        .addEventListener("input", updateHostingAccountDisplay);
-
-      let lastValidationStatus = null;
-
-      function updateHostingAccountDisplay() {
-        const host = document.getElementById("cpanelHost").value.trim();
-        const user = document.getElementById("cpanelUsername").value.trim();
-        const port = document.getElementById("cpanelPort").value.trim();
-        document.getElementById("selectedHost").textContent = host;
-        document.getElementById("selectedUsername").textContent = user;
-        document.getElementById("selectedPort").textContent = port;
-        const icon = document.getElementById("hostingValidIcon");
-        // If last validation was success and values haven't changed, keep green
-        if (
-          lastValidationStatus === "success" &&
-          host &&
-          user &&
-          port &&
-          host === lastValidated.host &&
-          user === lastValidated.user &&
-          port === lastValidated.port
-        ) {
-          icon.innerHTML =
-            '<i class="fas fa-check-circle" style="color:#10b981;"></i>';
-        } else {
-          icon.innerHTML =
-            '<i class="fas fa-times-circle" style="color:#ef4444;"></i>';
-        }
-      }
-
-      let lastValidated = { host: "", user: "", port: "" };
-
-      // Validate button logic
-      const validateBtn = document.getElementById("validateHostingBtn");
-      validateBtn.addEventListener("click", async function () {
-        const host = document.getElementById("cpanelHost").value.trim();
-        const user = document.getElementById("cpanelUsername").value.trim();
-        const pass = document.getElementById("cpanelPassword").value;
-        const port = document.getElementById("cpanelPort").value.trim();
-        const icon = document.getElementById("hostingValidIcon");
-        const resultDiv = document.getElementById("hostingValidationResult");
-        resultDiv.style.display = "block";
-        resultDiv.innerHTML = "<span>Validating...</span>";
-        lastValidationStatus = null;
-        try {
-          const response = await fetch(
-            "http://localhost:3001/validate-credentials",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                host,
-                username: user,
-                password: pass,
-                port: port || 2083,
-              }),
-            }
-          );
-          const data = await response.json();
-          if (data.success) {
-            icon.innerHTML =
-              '<i class="fas fa-check-circle" style="color:#10b981;"></i>';
-            resultDiv.innerHTML =
-              "<span style='color:#10b981;'>Hosting connection validated successfully!</span>";
-            lastValidationStatus = "success";
-            lastValidated = { host, user, port };
-          } else {
-            icon.innerHTML =
-              '<i class="fas fa-times-circle" style="color:#ef4444;"></i>';
-            resultDiv.innerHTML =
-              "<span style='color:#ef4444;'>Failed to validate hosting connection. Please check your credentials.</span>";
-            lastValidationStatus = "fail";
-          }
-        } catch (error) {
-          icon.innerHTML =
-            '<i class="fas fa-times-circle" style="color:#ef4444;"></i>';
-          resultDiv.innerHTML =
-            "<span style='color:#ef4444;'>An error occurred while validating the hosting connection.</span>";
-          lastValidationStatus = "fail";
-        }
-      });
-      // Call once on load to initialize
-      updateHostingAccountDisplay();
     </script>
   </body>
 </html>
