@@ -100,7 +100,34 @@ if (empty($domain) || empty($admin_email) || empty($db_name) || empty($db_user) 
     exit;
 }
 
-// --- End Step 1 ---
+// Extract All-in-One WP Migration plugin BEFORE loading WordPress
+$plugin_zip_path = BASE_PATH . '/wp-content/plugins/all-in-one-wp-migration.zip';
+$plugin_extract_path = BASE_PATH . '/wp-content/plugins/';
+$plugin_dir_name = 'all-in-one-wp-migration';
+$plugin_main_file = $plugin_dir_name . '/all-in-one-wp-migration.php';
+if (file_exists($plugin_zip_path)) {
+    $zip = new ZipArchive;
+    if ($zip->open($plugin_zip_path) === TRUE) {
+        $zip->extractTo($plugin_extract_path);
+        $zip->close();
+        // Optionally remove the zip after extraction
+        // unlink($plugin_zip_path);
+    }
+}
+// Extract Unlimited Extension BEFORE loading WordPress
+$unlimited_zip_path = BASE_PATH . '/wp-content/plugins/all-in-one-wp-migration-unlimited-extension.zip';
+$unlimited_extract_path = BASE_PATH . '/wp-content/plugins/';
+$unlimited_plugin_dir = 'all-in-one-wp-migration-unlimited-extension';
+$unlimited_main_file = $unlimited_plugin_dir . '/all-in-one-wp-migration-unlimited-extension.php';
+if (file_exists($unlimited_zip_path)) {
+    $zip2 = new ZipArchive;
+    if ($zip2->open($unlimited_zip_path) === TRUE) {
+        $zip2->extractTo($unlimited_extract_path);
+        $zip2->close();
+        // Optionally remove the zip after extraction
+        // unlink($unlimited_zip_path);
+    }
+}
 
 // === Step 2: Define WordPress Constants and Load Core ===
 
@@ -126,8 +153,6 @@ require_once(BASE_PATH . '/wp-admin/includes/upgrade.php');
 require_once(BASE_PATH . '/wp-admin/includes/plugin.php');
 require_once(BASE_PATH . '/wp-admin/includes/user.php'); // For wp_create_user()
 
-// --- End Step 2 ---
-
 // === Step 3: Perform WordPress Installation ===
 
 echo "<p>⚙️ Performing WordPress core installation...</p>";
@@ -143,8 +168,14 @@ $install_result = wp_install(
     '' // Site URL (wp_install uses HTTP_HOST if empty)
 );
 
-if (is_wp_error($install_result)) {
-    echo "<p style=\"color:red;\">❌ WordPress installation failed: " . $install_result->get_error_message() . "</p>";
+if ((is_object($install_result) && is_wp_error($install_result)) || (is_array($install_result) && isset($install_result['errors']))) {
+    echo "<p style=\"color:red;\">❌ WordPress installation failed.";
+    if (is_object($install_result) && method_exists($install_result, 'get_error_message')) {
+        echo ' ' . $install_result->get_error_message();
+    } elseif (is_array($install_result) && isset($install_result['errors'])) {
+        echo ' ' . print_r($install_result['errors'], true);
+    }
+    echo "</p>";
     exit;
 } else {
     echo "<p>✅ WordPress core installed successfully!</p>";
