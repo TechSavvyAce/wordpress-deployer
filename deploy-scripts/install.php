@@ -217,9 +217,22 @@ if (file_exists($plugin_zip_path)) {
                     // Activate Unlimited Extension
                     if (file_exists(ABSPATH . 'wp-admin/includes/plugin.php')) {
                         include_once(ABSPATH . 'wp-admin/includes/plugin.php');
+                        echo "<pre>Debug: unlimited_main_file = $unlimited_main_file</pre>";
+                        $plugin_full_path = ABSPATH . 'wp-content/plugins/' . $unlimited_main_file;
+                        if (file_exists($plugin_full_path)) {
+                            echo "<pre>Plugin file found at: $plugin_full_path</pre>";
+                            // Print first 10 lines of the plugin file
+                            $lines = file($plugin_full_path);
+                            echo "<pre>First 10 lines of plugin file:\n" . htmlspecialchars(implode('', array_slice($lines, 0, 10))) . "</pre>";
+                        } else {
+                            echo "<p style='color:red;'>Plugin file not found at: $plugin_full_path</p>";
+                        }
                         $activated2 = activate_plugin($unlimited_main_file);
                         if (is_wp_error($activated2)) {
                             echo "<p style=\"color:red;\">❌ Failed to activate Unlimited Extension: " . $activated2->get_error_message() . "</p>";
+                            echo "<pre>";
+                            print_r($activated2);
+                            echo "</pre>";
                         } else {
                             echo "<p>✅ Unlimited Extension activated.</p>";
                         }
