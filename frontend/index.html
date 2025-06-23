@@ -831,15 +831,7 @@
         <div class="nav-tab active" data-tab="deploy">
           <i class="fas fa-rocket"></i> Deploy Site
         </div>
-        <div class="nav-tab" data-tab="templates">
-          <i class="fas fa-palette"></i> Manage Templates
-        </div>
-        <div class="nav-tab" data-tab="credentials">
-          <i class="fas fa-key"></i> Manage Credentials
-        </div>
-        <div class="nav-tab" data-tab="jobs">
-          <i class="fas fa-list"></i> View Jobs
-        </div>
+        <!-- Credentials, Templates, and Jobs tabs removed -->
       </div>
 
       <!-- Deploy Tab -->
@@ -859,53 +851,60 @@
             </select>
           </div>
 
+          <!-- Credential Inputs -->
           <div class="form-group">
-            <label for="credentialSelect">
-              <i class="fas fa-key"></i> Select Hosting Account
+            <label for="credentialHost">
+              <i class="fas fa-server"></i> cPanel Host
             </label>
-            <div class="credential-selector">
-              <select
-                name="credentialId"
-                id="credentialSelect"
+            <input
+              type="text"
+              name="credentialHost"
+              id="credentialHost"
+              class="form-control"
+              placeholder="mydomain.com or server IP"
+              required
+            />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="credentialUsername">
+                <i class="fas fa-user"></i> cPanel Username
+              </label>
+              <input
+                type="text"
+                name="credentialUsername"
+                id="credentialUsername"
                 class="form-control"
+                placeholder="cpanel_username"
                 required
-              >
-                <option value="">Select hosting account...</option>
-              </select>
-              <button
-                type="button"
-                class="btn btn-secondary"
-                onclick="switchToCredentialsTab()"
-              >
-                <i class="fas fa-plus"></i> Add New
-              </button>
+              />
             </div>
-            <div
-              id="credentialInfo"
-              class="credential-info"
-              style="display: none"
-            >
-              <div class="credential-info-header" id="credentialInfoHeader">
-                <i class="fas fa-check-circle" id="headerIcon"></i>
-                <span>Selected Hosting Account</span>
-              </div>
-              <div class="credential-info-content">
-                <div class="credential-info-item">
-                  <i class="fas fa-globe"></i>
-                  <div>
-                    <label>Domain</label>
-                    <span id="selectedDomain"></span>
-                  </div>
-                </div>
-                <div class="credential-info-item">
-                  <i class="fas fa-server"></i>
-                  <div>
-                    <label>Host</label>
-                    <span id="selectedHost"></span>
-                  </div>
-                </div>
-              </div>
+            <div class="form-group">
+              <label for="credentialPassword">
+                <i class="fas fa-lock"></i> cPanel Password
+              </label>
+              <input
+                type="password"
+                name="credentialPassword"
+                id="credentialPassword"
+                class="form-control"
+                placeholder="cpanel_password"
+                required
+              />
             </div>
+          </div>
+          <div class="form-group">
+            <label for="credentialPort">
+              <i class="fas fa-network-wired"></i> cPanel Port
+            </label>
+            <input
+              type="number"
+              name="credentialPort"
+              id="credentialPort"
+              class="form-control"
+              value="2083"
+              placeholder="2083"
+            />
           </div>
 
           <div class="form-row">
@@ -1278,280 +1277,11 @@
           existingLogs.forEach((log) => log.remove());
 
           // Load data for the tab
-          if (tab.dataset.tab === "credentials") {
-            loadCredentials();
-          } else if (tab.dataset.tab === "jobs") {
-            loadJobs();
-          } else if (tab.dataset.tab === "templates") {
-            loadTemplatesForManagement();
-          } else if (tab.dataset.tab === "deploy") {
-            loadCredentialsForDeploy();
+          if (tab.dataset.tab === "deploy") {
             loadTemplates();
           }
         });
       });
-
-      // Load credentials for deploy form
-      async function loadCredentialsForDeploy() {
-        try {
-          const response = await fetch("http://localhost:3001/credentials");
-          const data = await response.json();
-          savedCredentials = data.credentials;
-
-          const credentialSelect = document.getElementById("credentialSelect");
-          const currentSelection = credentialSelect.value; // Preserve current selection
-
-          credentialSelect.innerHTML =
-            '<option value="">Select hosting account...</option>';
-
-          savedCredentials.forEach((cred) => {
-            const option = document.createElement("option");
-            option.value = cred.id;
-            option.textContent = `${cred.name} (${cred.host})`;
-            credentialSelect.appendChild(option);
-          });
-
-          // Restore the previous selection if it still exists
-          if (currentSelection) {
-            const stillExists = savedCredentials.find(
-              (c) => c.id === currentSelection
-            );
-            if (stillExists) {
-              credentialSelect.value = currentSelection;
-              // Trigger the change event to update the credential info display
-              credentialSelect.dispatchEvent(new Event("change"));
-            }
-          }
-        } catch (error) {
-          console.error("Error loading credentials:", error);
-        }
-      }
-
-      // Handle credential selection
-      document
-        .getElementById("credentialSelect")
-        .addEventListener("change", async function (e) {
-          const credentialId = e.target.value;
-          const credentialInfo = document.getElementById("credentialInfo");
-          const credentialSelect = e.target;
-
-          if (credentialId) {
-            // Find the selected credential first to show its name
-            selectedCredential = savedCredentials.find(
-              (c) => c.id === credentialId
-            );
-
-            if (selectedCredential) {
-              // Show credential info immediately
-              document.getElementById("selectedDomain").textContent =
-                selectedCredential.host;
-              document.getElementById("selectedHost").textContent =
-                selectedCredential.host;
-              credentialInfo.style.display = "block";
-
-              // Update header for validating state
-              const header = document.getElementById("credentialInfoHeader");
-              const headerIcon = document.getElementById("headerIcon");
-
-              // Update header styling for validating
-              header.className = "credential-info-header validating";
-              headerIcon.className = "fas fa-spinner";
-              headerIcon.style.animation = "spin 1s linear infinite";
-
-              // Auto-fill email with domain
-              const emailInput = document.getElementById("email");
-              if (!emailInput.value) {
-                emailInput.placeholder = `admin@${selectedCredential.host}`;
-              }
-
-              try {
-                // First validate credentials with streaming logs
-                const validateWithStreaming = async () => {
-                  const controller = new AbortController();
-                  const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
-
-                  // Construct credential data from selected credential
-                  const credentialData = {
-                    host: selectedCredential.host,
-                    username: selectedCredential.username,
-                    password: selectedCredential.password,
-                    port: selectedCredential.port || 2083,
-                  };
-
-                  try {
-                    const response = await fetch(
-                      "http://localhost:3001/validate-credentials-stream",
-                      {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify(credentialData),
-                        signal: controller.signal,
-                      }
-                    );
-
-                    clearTimeout(timeoutId);
-
-                    // Handle streaming response
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
-                    let validationResult = null;
-                    let logs = [];
-
-                    // Get or create log display
-                    let logContainer =
-                      document.querySelector(".validation-logs");
-                    if (!logContainer) {
-                      logContainer = document.createElement("div");
-                      logContainer.className = "validation-logs";
-                      logContainer.style.cssText = `
-                        background: #f8fafc;
-                        border: 1px solid #e5e7eb;
-                        border-radius: 8px;
-                        padding: 15px;
-                        margin: 15px 0;
-                        max-height: 200px;
-                        overflow-y: auto;
-                        font-family: monospace;
-                        font-size: 0.9rem;
-                        line-height: 1.4;
-                      `;
-
-                      const logTitle = document.createElement("div");
-                      logTitle.innerHTML =
-                        "<strong>🔍 Validation Progress:</strong>";
-                      logTitle.style.marginBottom = "10px";
-                      logContainer.appendChild(logTitle);
-
-                      const logContent = document.createElement("div");
-                      logContent.id = "validationLogContent";
-                      logContainer.appendChild(logContent);
-
-                      // Insert log container before the result div
-                      const resultDiv =
-                        document.getElementById("credentialResult");
-                      resultDiv.parentNode.insertBefore(
-                        logContainer,
-                        resultDiv
-                      );
-                    } else {
-                      // Clear existing logs and update title
-                      const logContent = logContainer.querySelector(
-                        "#validationLogContent"
-                      );
-                      if (logContent) {
-                        logContent.innerHTML = "";
-                      }
-                      const logTitle = logContainer.querySelector("div");
-                      if (logTitle) {
-                        logTitle.innerHTML =
-                          "<strong>🔍 Validation Progress:</strong>";
-                      }
-                    }
-
-                    const logContent = logContainer.querySelector(
-                      "#validationLogContent"
-                    );
-
-                    try {
-                      while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-
-                        const chunk = decoder.decode(value);
-                        const lines = chunk.split("\n");
-
-                        for (const line of lines) {
-                          if (line.startsWith("data: ")) {
-                            try {
-                              const data = JSON.parse(line.slice(6));
-
-                              if (data.type === "log") {
-                                logs.push(data.message);
-                                logContent.innerHTML += `<div style="margin: 2px 0; color: #374151;">${data.message}</div>`;
-                                logContainer.scrollTop =
-                                  logContainer.scrollHeight;
-                              } else if (data.type === "success") {
-                                validationResult = { success: true, ...data };
-                                logContent.innerHTML += `<div style="margin: 2px 0; color: #065f46; font-weight: bold;">✅ ${data.message}</div>`;
-                              } else if (data.type === "error") {
-                                validationResult = { success: false, ...data };
-                                logContent.innerHTML += `<div style="margin: 2px 0; color: #991b1b; font-weight: bold;">❌ ${data.message}</div>`;
-                              }
-                            } catch (e) {
-                              console.error("Error parsing SSE data:", e);
-                            }
-                          }
-                        }
-                      }
-                    } finally {
-                      reader.releaseLock();
-                    }
-
-                    if (!validationResult) {
-                      throw new Error("No validation result received");
-                    }
-
-                    return {
-                      ok: validationResult.success,
-                      json: () => Promise.resolve(validationResult),
-                    };
-                  } catch (error) {
-                    clearTimeout(timeoutId);
-                    if (error.name === "AbortError") {
-                      throw new Error(
-                        "Validation timeout - server took too long to respond"
-                      );
-                    }
-                    throw error;
-                  }
-                };
-
-                const validateResponse = await validateWithStreaming();
-                const validateData = await validateResponse.json();
-
-                if (validateResponse.ok && validateData.success) {
-                  // Update header for valid state
-                  header.className = "credential-info-header valid";
-                  headerIcon.className = "fas fa-check-circle";
-                  headerIcon.style.animation = "";
-
-                  showSuccessToast("Credential validated successfully!");
-                } else {
-                  // Update header for invalid state
-                  header.className = "credential-info-header invalid";
-                  headerIcon.className = "fas fa-times-circle";
-                  headerIcon.style.animation = "";
-
-                  // Reset selection
-                  selectedCredential = null;
-                  credentialSelect.value = "";
-                  credentialInfo.style.display = "none";
-
-                  showErrorToast("Invalid credentials");
-                }
-              } catch (error) {
-                console.error("Error validating credential:", error);
-
-                // Update header for error state
-                header.className = "credential-info-header error";
-                headerIcon.className = "fas fa-exclamation-circle";
-                headerIcon.style.animation = "";
-
-                // Reset selection
-                selectedCredential = null;
-                credentialSelect.value = "";
-                credentialInfo.style.display = "none";
-
-                showErrorToast("Failed to validate credentials");
-              }
-            }
-          } else {
-            selectedCredential = null;
-            credentialInfo.style.display = "none";
-          }
-        });
 
       // File input handling
       const fileInput = document.getElementById("logo");
@@ -1642,10 +1372,14 @@
       form.addEventListener("submit", async function (e) {
         e.preventDefault();
 
-        if (!selectedCredential) {
-          showErrorToast("Please select a hosting account");
-          return;
-        }
+        // Gather credential data from inputs
+        const credentialData = {
+          host: document.getElementById("credentialHost").value.trim(),
+          username: document.getElementById("credentialUsername").value.trim(),
+          password: document.getElementById("credentialPassword").value,
+          port:
+            parseInt(document.getElementById("credentialPort").value) || 2083,
+        };
 
         // Show loading state
         submitBtn.disabled = true;
@@ -1653,9 +1387,73 @@
         loading.style.display = "flex";
 
         try {
-          // First create the job
+          // 1. Validate credentials
+          const validateResponse = await fetch(
+            "http://localhost:3001/validate-credentials-stream",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(credentialData),
+            }
+          );
+
+          // Handle streaming response (optional: show logs)
+          let validationResult = null;
+          if (validateResponse.body && validateResponse.ok) {
+            const reader = validateResponse.body.getReader();
+            const decoder = new TextDecoder();
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const chunk = decoder.decode(value);
+              const lines = chunk.split("\n");
+              for (const line of lines) {
+                if (line.startsWith("data: ")) {
+                  try {
+                    const data = JSON.parse(line.slice(6));
+                    if (data.type === "success")
+                      validationResult = { success: true, ...data };
+                    if (data.type === "error")
+                      validationResult = { success: false, ...data };
+                  } catch {}
+                }
+              }
+            }
+          }
+
+          if (!validationResult || !validationResult.success) {
+            showErrorToast(
+              validationResult?.message ||
+                "Invalid credentials. Please check and try again."
+            );
+            submitBtn.disabled = false;
+            btnText.style.display = "flex";
+            loading.style.display = "none";
+            return;
+          }
+
+          // 2. Save credentials
+          const saveResponse = await fetch(
+            "http://localhost:3001/save-credentials",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(credentialData),
+            }
+          );
+          const saveData = await saveResponse.json();
+          if (!saveResponse.ok || !saveData.credentialId) {
+            showErrorToast("Failed to save credentials. Please try again.");
+            submitBtn.disabled = false;
+            btnText.style.display = "flex";
+            loading.style.display = "none";
+            return;
+          }
+
+          // 3. Proceed with deployment using credentialId
           const formData = new FormData(form);
-          formData.append("domain", selectedCredential.host); // Auto-add domain from credential
+          formData.append("credentialId", saveData.credentialId);
+          formData.append("domain", credentialData.host); // Use host as domain
 
           const jobResponse = await fetch(form.action, {
             method: "POST",
@@ -1670,10 +1468,6 @@
               const controller = new AbortController();
               const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
 
-              console.log("🚀 Starting deployment streaming...");
-              console.log("Job ID:", jobData.jobId);
-              console.log("Credential ID:", selectedCredential.id);
-
               try {
                 const response = await fetch(
                   `http://localhost:3001/upload/${jobData.jobId}/stream`,
@@ -1683,37 +1477,23 @@
                       "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
-                      credentialId: selectedCredential.id,
+                      credentialId: saveData.credentialId,
                     }),
                     signal: controller.signal,
                   }
                 );
 
                 clearTimeout(timeoutId);
-                console.log(
-                  "📡 Response received:",
-                  response.status,
-                  response.statusText
-                );
-
-                // Check if response is ok
                 if (!response.ok) {
                   const errorText = await response.text();
-                  console.error(
-                    "❌ Response not ok:",
-                    response.status,
-                    errorText
-                  );
                   throw new Error(`HTTP ${response.status}: ${errorText}`);
                 }
 
-                // Handle streaming response
+                // Handle streaming response (reuse previous logic)
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let deploymentResult = null;
                 let logs = [];
-
-                // Get or create deployment log display
                 let logContainer = document.querySelector(".deployment-logs");
                 if (!logContainer) {
                   logContainer = document.createElement("div");
@@ -1730,14 +1510,11 @@
                     font-size: 0.9rem;
                     line-height: 1.4;
                   `;
-
                   const logTitle = document.createElement("div");
                   logTitle.innerHTML =
                     "<strong>🚀 Deployment Progress:</strong>";
                   logTitle.style.marginBottom = "10px";
                   logContainer.appendChild(logTitle);
-
-                  // Add progress bar
                   const progressContainer = document.createElement("div");
                   progressContainer.style.cssText = `
                     margin-bottom: 10px;
@@ -1746,7 +1523,6 @@
                     overflow: hidden;
                     height: 8px;
                   `;
-
                   const progressBar = document.createElement("div");
                   progressBar.id = "deploymentProgressBar";
                   progressBar.style.cssText = `
@@ -1755,60 +1531,42 @@
                     width: 0%;
                     transition: width 0.3s ease;
                   `;
-
                   progressContainer.appendChild(progressBar);
                   logContainer.appendChild(progressContainer);
-
                   const logContent = document.createElement("div");
                   logContent.id = "deploymentLogContent";
                   logContainer.appendChild(logContent);
-
-                  // Insert log container in the deployment tab
                   const deploymentTab = document.getElementById("deploy-tab");
                   deploymentTab.appendChild(logContainer);
                 } else {
-                  // Clear existing logs and update title
                   const logContent = logContainer.querySelector(
                     "#deploymentLogContent"
                   );
-                  if (logContent) {
-                    logContent.innerHTML = "";
-                  }
+                  if (logContent) logContent.innerHTML = "";
                   const logTitle = logContainer.querySelector("div");
-                  if (logTitle) {
+                  if (logTitle)
                     logTitle.innerHTML =
                       "<strong>🚀 Deployment Progress:</strong>";
-                  }
-
-                  // Reset progress bar
                   const progressBar = logContainer.querySelector(
                     "#deploymentProgressBar"
                   );
-                  if (progressBar) {
-                    progressBar.style.width = "0%";
-                  }
+                  if (progressBar) progressBar.style.width = "0%";
                 }
-
                 const logContent = logContainer.querySelector(
                   "#deploymentLogContent"
                 );
-
                 try {
                   while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-
                     const chunk = decoder.decode(value);
                     const lines = chunk.split("\n");
-
                     for (const line of lines) {
                       if (line.startsWith("data: ")) {
                         try {
                           const data = JSON.parse(line.slice(6));
-
                           if (data.type === "start") {
                             logContent.innerHTML += `<div style="margin: 2px 0; color: #1f2937; font-weight: bold;">🚀 ${data.message}</div>`;
-                            // Update progress bar to 10%
                             const progressBar = logContainer.querySelector(
                               "#deploymentProgressBar"
                             );
@@ -1816,8 +1574,6 @@
                           } else if (data.type === "log") {
                             logs.push(data.message);
                             logContent.innerHTML += `<div style="margin: 2px 0; color: #374151;">${data.message}</div>`;
-
-                            // Update progress based on log messages
                             const progressBar = logContainer.querySelector(
                               "#deploymentProgressBar"
                             );
@@ -1826,44 +1582,38 @@
                                 data.message.includes(
                                   "MySQL database and user created"
                                 )
-                              ) {
+                              )
                                 progressBar.style.width = "30%";
-                              } else if (
+                              else if (
                                 data.message.includes(
                                   "FTP credentials retrieved"
                                 )
-                              ) {
+                              )
                                 progressBar.style.width = "50%";
-                              } else if (
+                              else if (
                                 data.message.includes(
                                   "WordPress core files uploaded"
                                 )
-                              ) {
+                              )
                                 progressBar.style.width = "70%";
-                              } else if (
+                              else if (
                                 data.message.includes("Template uploaded")
-                              ) {
+                              )
                                 progressBar.style.width = "80%";
-                              } else if (
-                                data.message.includes("Logo uploaded")
-                              ) {
+                              else if (data.message.includes("Logo uploaded"))
                                 progressBar.style.width = "85%";
-                              } else if (
+                              else if (
                                 data.message.includes("Install script uploaded")
-                              ) {
+                              )
                                 progressBar.style.width = "90%";
-                              } else if (
-                                data.message.includes("plugin uploaded")
-                              ) {
+                              else if (data.message.includes("plugin uploaded"))
                                 progressBar.style.width = "95%";
-                              }
                             }
                           } else if (data.type === "info") {
                             logContent.innerHTML += `<div style="margin: 2px 0; color: #1d4ed8;">ℹ️ ${data.message}</div>`;
                           } else if (data.type === "success") {
                             deploymentResult = { success: true, ...data };
                             logContent.innerHTML += `<div style="margin: 2px 0; color: #065f46; font-weight: bold;">✅ ${data.message}</div>`;
-                            // Update progress bar to 100%
                             const progressBar = logContainer.querySelector(
                               "#deploymentProgressBar"
                             );
@@ -1871,7 +1621,6 @@
                           } else if (data.type === "error") {
                             deploymentResult = { success: false, ...data };
                             logContent.innerHTML += `<div style="margin: 2px 0; color: #991b1b; font-weight: bold;">❌ ${data.message}</div>`;
-                            // Change progress bar to error color
                             const progressBar = logContainer.querySelector(
                               "#deploymentProgressBar"
                             );
@@ -1880,47 +1629,36 @@
                               progressBar.style.width = "100%";
                             }
                           }
-
                           logContainer.scrollTop = logContainer.scrollHeight;
                         } catch (e) {
-                          console.error("Error parsing SSE data:", e);
                           logContent.innerHTML += `<div style="margin: 2px 0; color: #991b1b;">❌ Error parsing log: ${e.message}</div>`;
-                          // Set deployment result to error if not already set
-                          if (!deploymentResult) {
+                          if (!deploymentResult)
                             deploymentResult = {
                               success: false,
                               error: e.message,
                             };
-                          }
                         }
                       }
                     }
                   }
                 } catch (readError) {
-                  console.error("Error reading stream:", readError);
                   logContent.innerHTML += `<div style="margin: 2px 0; color: #991b1b;">❌ Stream read error: ${readError.message}</div>`;
-                  // Set deployment result to error if not already set
-                  if (!deploymentResult) {
+                  if (!deploymentResult)
                     deploymentResult = {
                       success: false,
                       error: readError.message,
                     };
-                  }
                 } finally {
                   reader.releaseLock();
                 }
-
-                if (!deploymentResult) {
+                if (!deploymentResult)
                   throw new Error("No deployment result received");
-                }
-
                 return {
                   ok: deploymentResult.success,
                   json: () => Promise.resolve(deploymentResult),
                 };
               } catch (error) {
                 clearTimeout(timeoutId);
-                console.error("❌ Deployment streaming error:", error);
                 if (error.name === "AbortError") {
                   throw new Error(
                     "Deployment timeout - server took too long to respond"
@@ -1929,16 +1667,12 @@
                 throw error;
               }
             };
-
             const deployResponse = await deployWithStreaming();
             const deployData = await deployResponse.json();
-
             if (deployResponse.ok) {
               showSuccessToast("Deployment completed successfully!");
-
-              // Show next steps
               showNextSteps({
-                domain: jobData.domain || selectedCredential.host,
+                domain: jobData.domain || credentialData.host,
                 manualDbSetup: deployData.manualDbSetup,
                 dbInstructions: deployData.dbInstructions,
                 nextStep: deployData.nextStep,
@@ -1952,12 +1686,10 @@
             showErrorToast("Failed to create deployment job.");
           }
         } catch (error) {
-          console.error("❌ Main deployment error:", error);
           showErrorToast(
             "Network error occurred. Please check your connection."
           );
         } finally {
-          // Reset button state
           submitBtn.disabled = false;
           btnText.style.display = "flex";
           loading.style.display = "none";
@@ -2142,7 +1874,6 @@
               );
               showSuccessToast("Credentials saved successfully!");
               credentialForm.reset();
-              loadCredentialsForDeploy(); // Refresh the deploy form
               loadCredentials(); // Refresh the credentials tab
 
               // Auto-switch back to deploy tab after 2 seconds
@@ -2310,7 +2041,6 @@
           if (response.ok) {
             // Refresh both tabs
             loadCredentials(); // Refresh the credentials tab
-            loadCredentialsForDeploy(); // Refresh deploy form
 
             // Show success message if we're on the credentials tab
             const credentialsTab = document.getElementById("credentials-tab");
@@ -2355,7 +2085,6 @@
           if (response.ok) {
             // Refresh both tabs
             loadCredentials(); // Refresh the credentials tab
-            loadCredentialsForDeploy(); // Refresh deploy form
 
             // Show success message
             showSuccessToast(`"${name}" removed from saved credentials`);
@@ -2485,7 +2214,6 @@
         const existingLogs = document.querySelectorAll(".validation-logs");
         existingLogs.forEach((log) => log.remove());
 
-        loadCredentialsForDeploy();
         loadTemplates();
       });
 
@@ -2886,9 +2614,6 @@
         html += "</ul>";
         return html;
       }
-
-      // Usage:
-      element.innerHTML = renderDbInstructions(dbInstructions);
     </script>
   </body>
 </html>
