@@ -2603,13 +2603,26 @@
         nextStepsDiv.scrollIntoView({ behavior: "smooth" });
       }
 
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
       function renderDbInstructions(dbInstructions) {
-        if (typeof dbInstructions === "string") return dbInstructions;
-        if (Array.isArray(dbInstructions)) return dbInstructions.join("<br>");
+        if (typeof dbInstructions === "string")
+          return escapeHtml(dbInstructions);
+        if (Array.isArray(dbInstructions))
+          return dbInstructions.map(escapeHtml).join("<br>");
         // If it's an object, format as HTML
         let html = "<ul>";
         for (const key in dbInstructions) {
-          html += `<li><strong>${key}:</strong> ${dbInstructions[key]}</li>`;
+          html += `<li><strong>${escapeHtml(key)}:</strong> ${escapeHtml(
+            dbInstructions[key]
+          )}</li>`;
         }
         html += "</ul>";
         return html;
